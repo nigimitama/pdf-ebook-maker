@@ -4,6 +4,10 @@
 #
 # This software is released under the CC BY 4.0.
 # https://creativecommons.org/licenses/by/4.0/
+#
+# Source: ndlocr-lite/src/ndl_parser.py
+# https://github.com/ndl-lab/ndlocr-lite
+# Copied as-is; no modifications.
 
 from typing import List
 from enum import IntEnum, auto

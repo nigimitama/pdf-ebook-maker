@@ -1,3 +1,11 @@
+# Portions of this file are derived from ndlocr-lite/src/ocr.py
+# Copyright (c) 2023, National Diet Library, Japan
+# Released under CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+# Source: https://github.com/ndl-lab/ndlocr-lite
+# Modifications: restructured as a reusable Python class (OCREngine);
+#                removed CLI argument parsing and file I/O;
+#                added lazy model loading and progress callbacks.
+
 """OCR engine wrapping ndlocr-lite for local Japanese document OCR.
 
 This module provides a high-level interface to run OCR on document images

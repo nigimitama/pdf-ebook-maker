@@ -2,6 +2,11 @@
 #
 # This software is released under the CC BY 4.0.
 # https://creativecommons.org/licenses/by/4.0/
+#
+# Based on ndlocr-lite/src/reading_order/xy_cut/eval.py
+# Source: https://github.com/ndl-lab/ndlocr-lite
+# Modifications: converted absolute imports to relative imports for package use;
+#                simplified to the eval_xml entry point only.
 
 
 import numpy as np
