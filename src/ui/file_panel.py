@@ -7,6 +7,8 @@ Emits ``files_changed`` whenever the list changes so the parent can react
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -139,8 +141,24 @@ class FilePanel(QWidget):
 
     # ── File list management ───────────────────────────────────────────────────
 
-    def _add_paths(self, paths: list[str]) -> None:
+    _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+
+    def _expand(self, paths: list[str]) -> list[str]:
+        """Expand folder paths to their image-file contents; pass file paths through."""
+        result: list[str] = []
         for p in paths:
+            path = Path(p)
+            if path.is_dir():
+                result.extend(
+                    str(f) for f in sorted(path.iterdir())
+                    if f.is_file() and f.suffix.lower() in self._IMAGE_EXTS
+                )
+            else:
+                result.append(p)
+        return result
+
+    def _add_paths(self, paths: list[str]) -> None:
+        for p in self._expand(paths):
             if p not in self._files:
                 self._files.append(p)
                 self._insert_item(p)
