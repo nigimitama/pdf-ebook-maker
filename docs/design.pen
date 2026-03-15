@@ -998,7 +998,7 @@
                           "id": "FTLpf",
                           "name": "optionLabel1",
                           "fill": "#1A1A1A",
-                          "content": "画像を自動的にページサイズに合わせる",
+                          "content": "OCRを実行してテキストを埋め込む",
                           "fontFamily": "DM Sans",
                           "fontSize": 13,
                           "fontWeight": "normal"
@@ -1027,7 +1027,32 @@
                             "fill": "#D1D5DB"
                           },
                           "justifyContent": "center",
-                          "alignItems": "center"
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "0aSJq",
+                              "name": "optionCheck1",
+                              "width": 18,
+                              "height": 18,
+                              "fill": "#FF6B6B",
+                              "cornerRadius": 4,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon_font",
+                                  "id": "4iGE0",
+                                  "name": "optionCheckIcon1",
+                                  "width": 12,
+                                  "height": 12,
+                                  "iconFontName": "check",
+                                  "iconFontFamily": "lucide",
+                                  "fill": "#FFFFFF"
+                                }
+                              ]
+                            }
+                          ]
                         },
                         {
                           "type": "text",

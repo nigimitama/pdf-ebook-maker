@@ -11,6 +11,5 @@ class RunOptions:
 
     output_dir: str
     output_name: str
-    fit_page: bool
     sort_by_name: bool
     run_ocr: bool

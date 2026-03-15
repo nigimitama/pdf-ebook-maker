@@ -109,19 +109,17 @@ class SettingsPanel(QWidget):
                 background: white; border: 2px solid {BORDER_LIGHT}; border-radius: 4px;
             }}
         """
-        self._cb_fit_page = QCheckBox("画像を自動的にページサイズに合わせる")
-        self._cb_fit_page.setChecked(True)
-        self._cb_fit_page.setStyleSheet(cb_style)
-
-        self._cb_sort_name = QCheckBox("ファイル名順に並べ替え")
-        self._cb_sort_name.setStyleSheet(cb_style)
-
-        self._cb_run_ocr = QCheckBox("OCRを実行してテキストを埋め込む（日本語文書向け）")
+        self._cb_run_ocr = QCheckBox("OCRを実行してテキストを埋め込む")
+        self._cb_run_ocr.setChecked(True)
         self._cb_run_ocr.setStyleSheet(cb_style)
 
-        layout.addWidget(self._cb_fit_page)
-        layout.addWidget(self._cb_sort_name)
+        self._cb_sort_name = QCheckBox("ファイル名順に並べ替え")
+        self._cb_sort_name.setChecked(True)
+        self._cb_sort_name.setStyleSheet(cb_style)
+
+        
         layout.addWidget(self._cb_run_ocr)
+        layout.addWidget(self._cb_sort_name)
         return card
 
     def _make_run_section(self) -> QWidget:
@@ -158,7 +156,6 @@ class SettingsPanel(QWidget):
         self.run_requested.emit(RunOptions(
             output_dir=self._output_card.output_dir,
             output_name=self._output_card.output_name,
-            fit_page=self._cb_fit_page.isChecked(),
             sort_by_name=self._cb_sort_name.isChecked(),
             run_ocr=self._cb_run_ocr.isChecked(),
         ))

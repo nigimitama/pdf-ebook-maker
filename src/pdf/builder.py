@@ -34,7 +34,6 @@ def build_pdf(
     image_paths: list[str],
     output_path: str,
     *,
-    fit_page: bool = True,
     ocr_results: dict[str, list] | None = None,
 ) -> None:
     """Build a PDF from image_paths, embedding an invisible OCR text layer when provided.
@@ -46,7 +45,6 @@ def build_pdf(
     fit_page:     Scale each image to fit an A4 page when True.
     ocr_results:  Mapping of image path → list[OcrResult]; None to skip OCR layer.
     """
-    from reportlab.lib.pagesizes import A4  # noqa: PLC0415
     from reportlab.pdfgen import canvas as rl_canvas  # noqa: PLC0415
 
     _ocr = ocr_results or {}
@@ -55,7 +53,7 @@ def build_pdf(
     for path in image_paths:
         pil_img = Image.open(path).convert("RGB")
         img_w, img_h = pil_img.size
-        page_w, page_h = A4 if fit_page else (float(img_w), float(img_h))
+        page_w, page_h = (float(img_w), float(img_h))
 
         c.setPageSize((page_w, page_h))
         scale_x = page_w / img_w
