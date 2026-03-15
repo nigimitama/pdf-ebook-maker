@@ -9,4 +9,12 @@ dependencies = [
     "opencv-python>=4.13.0.92",
     "pillow>=12.1.1",
     "pyside6>=6.7",
+    # OCR (ndlocr-lite)
+    "onnxruntime>=1.19.0",
+    "pyyaml>=6.0",
+    "lxml>=5.0",
+    "networkx>=3.0",
+    "tqdm>=4.60",
+    # PDF generation
+    "reportlab>=4.0",
 ]

@@ -43,6 +43,7 @@ class RunOptions:
     output_name: str
     fit_page: bool
     sort_by_name: bool
+    run_ocr: bool
 
 
 def _lbl(text: str, style: str) -> QLabel:
@@ -226,8 +227,12 @@ class SettingsPanel(QWidget):
         self._cb_sort_name = QCheckBox("ファイル名順に並べ替え")
         self._cb_sort_name.setStyleSheet(cb_style)
 
+        self._cb_run_ocr = QCheckBox("OCRを実行してテキストを埋め込む（日本語文書向け）")
+        self._cb_run_ocr.setStyleSheet(cb_style)
+
         layout.addWidget(self._cb_fit_page)
         layout.addWidget(self._cb_sort_name)
+        layout.addWidget(self._cb_run_ocr)
         return card
 
     def _make_run_section(self) -> QWidget:
@@ -315,6 +320,7 @@ class SettingsPanel(QWidget):
                 output_name=self._output_name.text().strip(),
                 fit_page=self._cb_fit_page.isChecked(),
                 sort_by_name=self._cb_sort_name.isChecked(),
+                run_ocr=self._cb_run_ocr.isChecked(),
             )
         )
 
