@@ -9,19 +9,44 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
-from .constants import BG_GRAY, BORDER, BORDER_LIGHT, CORAL, TEXT_MUTED, TEXT_PRI, WHITE
+from .constants import BG_GRAY, BORDER, BORDER_LIGHT, CORAL, TEXT_MUTED, TEXT_PRI, TEXT_SEC, WHITE
 from .output_card import OutputCard
 from .progress_card import ProgressCard
 from .run_options import RunOptions
 
 __all__ = ["RunOptions", "SettingsPanel"]
+
+_CB_STYLE = f"""
+    QCheckBox {{
+        font-size: 13px; color: {TEXT_PRI};
+        spacing: 10px; background: transparent; border: none;
+    }}
+    QCheckBox::indicator {{ width: 18px; height: 18px; border-radius: 4px; }}
+    QCheckBox::indicator:checked {{ background: {CORAL}; border: none; image: url(none); }}
+    QCheckBox::indicator:unchecked {{
+        background: white; border: 2px solid {BORDER_LIGHT}; border-radius: 4px;
+    }}
+"""
+
+_SPINBOX_STYLE = f"""
+    QSpinBox, QDoubleSpinBox {{
+        background: {BG_GRAY}; border: 1px solid {BORDER_LIGHT};
+        border-radius: 6px; padding: 2px 6px;
+        font-size: 13px; color: {TEXT_PRI};
+    }}
+    QSpinBox:disabled, QDoubleSpinBox:disabled {{
+        color: {TEXT_MUTED}; border-color: {BORDER};
+    }}
+"""
 
 
 def _lbl(text: str, style: str) -> QLabel:
@@ -98,29 +123,69 @@ class SettingsPanel(QWidget):
         hdr.addStretch()
         layout.addLayout(hdr)
 
-        cb_style = f"""
-            QCheckBox {{
-                font-size: 13px; color: {TEXT_PRI};
-                spacing: 10px; background: transparent; border: none;
-            }}
-            QCheckBox::indicator {{ width: 18px; height: 18px; border-radius: 4px; }}
-            QCheckBox::indicator:checked {{ background: {CORAL}; border: none; image: url(none); }}
-            QCheckBox::indicator:unchecked {{
-                background: white; border: 2px solid {BORDER_LIGHT}; border-radius: 4px;
-            }}
-        """
         self._cb_run_ocr = QCheckBox("OCRを実行してテキストを埋め込む")
         self._cb_run_ocr.setChecked(True)
-        self._cb_run_ocr.setStyleSheet(cb_style)
+        self._cb_run_ocr.setStyleSheet(_CB_STYLE)
 
         self._cb_sort_name = QCheckBox("ファイル名順に並べ替え")
         self._cb_sort_name.setChecked(True)
-        self._cb_sort_name.setStyleSheet(cb_style)
+        self._cb_sort_name.setStyleSheet(_CB_STYLE)
 
-        
         layout.addWidget(self._cb_run_ocr)
         layout.addWidget(self._cb_sort_name)
+        layout.addWidget(self._make_contrast_section())
         return card
+
+    def _make_contrast_section(self) -> QWidget:
+        """Checkbox + brightness/gamma spinboxes for image contrast adjustment."""
+        container = QWidget()
+        container.setStyleSheet("background: transparent;")
+        v = QVBoxLayout(container)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(6)
+
+        self._cb_contrast = QCheckBox("画像のコントラストを調整")
+        self._cb_contrast.setStyleSheet(_CB_STYLE)
+        v.addWidget(self._cb_contrast)
+
+        # Params row — indented under the checkbox
+        self._contrast_params = QWidget()
+        self._contrast_params.setStyleSheet("background: transparent;")
+        self._contrast_params.setEnabled(False)
+        row = QHBoxLayout(self._contrast_params)
+        row.setContentsMargins(28, 0, 0, 0)
+        row.setSpacing(8)
+
+        row.addWidget(_lbl(
+            "明るさ",
+            f"font-size:12px; color:{TEXT_SEC}; background:transparent; border:none;",
+        ))
+        self._spin_brightness = QSpinBox()
+        self._spin_brightness.setRange(-100, 100)
+        self._spin_brightness.setValue(20)
+        self._spin_brightness.setFixedWidth(64)
+        self._spin_brightness.setStyleSheet(_SPINBOX_STYLE)
+        row.addWidget(self._spin_brightness)
+
+        row.addSpacing(8)
+        row.addWidget(_lbl(
+            "ガンマ",
+            f"font-size:12px; color:{TEXT_SEC}; background:transparent; border:none;",
+        ))
+        self._spin_gamma = QDoubleSpinBox()
+        self._spin_gamma.setRange(0.1, 5.0)
+        self._spin_gamma.setSingleStep(0.1)
+        self._spin_gamma.setDecimals(1)
+        self._spin_gamma.setValue(1.6)
+        self._spin_gamma.setFixedWidth(64)
+        self._spin_gamma.setStyleSheet(_SPINBOX_STYLE)
+        row.addWidget(self._spin_gamma)
+
+        row.addStretch()
+        v.addWidget(self._contrast_params)
+
+        self._cb_contrast.toggled.connect(self._contrast_params.setEnabled)
+        return container
 
     def _make_run_section(self) -> QWidget:
         container = QWidget()
@@ -158,4 +223,7 @@ class SettingsPanel(QWidget):
             output_name=self._output_card.output_name,
             sort_by_name=self._cb_sort_name.isChecked(),
             run_ocr=self._cb_run_ocr.isChecked(),
+            contrast_adjust=self._cb_contrast.isChecked(),
+            brightness=self._spin_brightness.value(),
+            gamma=self._spin_gamma.value(),
         ))

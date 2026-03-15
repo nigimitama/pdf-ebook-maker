@@ -26,14 +26,9 @@ def transform_intensity(
     image: np.ndarray,
     brightness: int = 20,
     gamma: float = 1.6,
-    gamma_target: str = "gray",
 ):
     """文書の文字を鮮明にするため、画像の輝度を変換する"""
-    is_color = image.ndim == 3
     # MEMO: gamma=1.5くらいがIrfanviewで0.6にしたときに近い（IrfanViewは逆数(1/0.6=1.66)にしてる?）
-    if gamma_target == "all" or ((gamma_target == "gray") and (not is_color)):
-        # ガンマ補正
-        image = gamma_correction(image, gamma=gamma)
-        # コントラスト補正
-        image = contrast_adjustments(image, contrast=1, brightness=brightness)
+    image = gamma_correction(image, gamma=gamma)
+    image = contrast_adjustments(image, contrast=1, brightness=brightness)
     return image

@@ -42,7 +42,14 @@ class OcrWorker(QThread):
 
             self.progress.emit(85, "PDF生成中...", "")
             output_path = str(Path(self._opts.output_dir) / (self._opts.output_name + ".pdf"))
-            build_pdf(image_paths, output_path, ocr_results=ocr_results)
+            build_pdf(
+                image_paths,
+                output_path,
+                ocr_results=ocr_results,
+                contrast_adjust=self._opts.contrast_adjust,
+                brightness=self._opts.brightness,
+                gamma=self._opts.gamma,
+            )
             self.progress.emit(100, "完了！", "")
             self.finished.emit()
 

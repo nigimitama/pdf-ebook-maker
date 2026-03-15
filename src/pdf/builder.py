@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from .font_resolver import resolve_ocr_font
@@ -35,15 +36,20 @@ def build_pdf(
     output_path: str,
     *,
     ocr_results: dict[str, list] | None = None,
+    contrast_adjust: bool = False,
+    brightness: int = 20,
+    gamma: float = 1.6,
 ) -> None:
     """Build a PDF from image_paths, embedding an invisible OCR text layer when provided.
 
     Parameters
     ----------
-    image_paths:  Ordered list of image file paths.
-    output_path:  Destination .pdf file path (including filename).
-    fit_page:     Scale each image to fit an A4 page when True.
-    ocr_results:  Mapping of image path → list[OcrResult]; None to skip OCR layer.
+    image_paths:     Ordered list of image file paths.
+    output_path:     Destination .pdf file path (including filename).
+    ocr_results:     Mapping of image path → list[OcrResult]; None to skip OCR layer.
+    contrast_adjust: Apply gamma + brightness correction before embedding images.
+    brightness:      Additive brightness offset (used when contrast_adjust=True).
+    gamma:           Gamma correction value (used when contrast_adjust=True).
     """
     from reportlab.pdfgen import canvas as rl_canvas  # noqa: PLC0415
 
@@ -52,6 +58,8 @@ def build_pdf(
 
     for path in image_paths:
         pil_img = Image.open(path).convert("RGB")
+        if contrast_adjust:
+            pil_img = _apply_contrast(pil_img, brightness=brightness, gamma=gamma)
         img_w, img_h = pil_img.size
         page_w, page_h = (float(img_w), float(img_h))
 
@@ -64,6 +72,13 @@ def build_pdf(
         c.showPage()
 
     c.save()
+
+
+def _apply_contrast(img: Image.Image, *, brightness: int, gamma: float) -> Image.Image:
+    """Apply gamma + brightness correction via image_processing.transform_intensity."""
+    from image_processing import transform_intensity  # noqa: PLC0415
+    arr = transform_intensity(np.array(img), brightness=brightness, gamma=gamma)
+    return Image.fromarray(arr)
 
 
 def _embed_ocr_layer(c, results: list, scale_x: float, scale_y: float, page_h: float) -> None:
