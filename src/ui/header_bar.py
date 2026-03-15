@@ -17,7 +17,7 @@ class HeaderBar(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(64)
-        self.setStyleSheet(f"background: {WHITE}; border-bottom: 1px solid {BORDER};")
+        self.setStyleSheet(f"border-bottom: 1px solid {BORDER};")
         self._setup_ui()
 
     def _setup_ui(self) -> None:
