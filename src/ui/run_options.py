@@ -11,6 +11,10 @@ class RunOptions:
 
     output_dir: str
     output_name: str
-    fit_page: bool
     sort_by_name: bool
     run_ocr: bool
+    contrast_adjust: bool = False
+    brightness: int = 20
+    gamma: float = 1.6
+    resize_width: int | None = None   # None = disabled
+    resize_height: int | None = None  # None = disabled
