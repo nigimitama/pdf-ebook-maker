@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run ruff check --fix src/",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "uv run pyright src/",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
