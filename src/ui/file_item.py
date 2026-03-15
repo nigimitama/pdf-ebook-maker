@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -18,6 +19,33 @@ from PySide6.QtWidgets import (
 )
 
 from .constants import AMBER, BORDER, BORDER_LIGHT, INDIGO, TEXT_MUTED, TEXT_PRI, WHITE
+
+_THUMB_SIZE = 36
+
+
+def _rounded_pixmap(path: str, size: int = _THUMB_SIZE, radius: int = 6) -> QPixmap | None:
+    """Load an image as a square pixmap with rounded corners. Returns None on failure."""
+    px = QPixmap(path)
+    if px.isNull():
+        return None
+    # Center-crop to square then scale
+    px = px.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                   Qt.TransformationMode.SmoothTransformation)
+    if px.width() > size or px.height() > size:
+        x = (px.width() - size) // 2
+        y = (px.height() - size) // 2
+        px = px.copy(x, y, size, size)
+    # Apply rounded-corner mask
+    rounded = QPixmap(size, size)
+    rounded.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(rounded)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    clip = QPainterPath()
+    clip.addRoundedRect(0, 0, size, size, radius, radius)
+    painter.setClipPath(clip)
+    painter.drawPixmap(0, 0, px)
+    painter.end()
+    return rounded
 
 
 class FileItem(QWidget):
@@ -51,7 +79,7 @@ class FileItem(QWidget):
 
     def _make_thumbnail(self) -> QLabel:
         thumb = QLabel()
-        thumb.setFixedSize(36, 36)
+        thumb.setFixedSize(_THUMB_SIZE, _THUMB_SIZE)
         thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
         if self.is_dir:
             thumb.setText("📁")
@@ -59,10 +87,15 @@ class FileItem(QWidget):
                 f"background: #FFFBEB; border-radius: 6px; font-size: 18px; color: {AMBER};"
             )
         else:
-            thumb.setText("🖼")
-            thumb.setStyleSheet(
-                f"background: #E0E7FF; border-radius: 6px; font-size: 18px; color: {INDIGO};"
-            )
+            px = _rounded_pixmap(self.path)
+            if px is not None:
+                thumb.setPixmap(px)
+                thumb.setStyleSheet("background: transparent;")
+            else:
+                thumb.setText("🖼")
+                thumb.setStyleSheet(
+                    f"background: #E0E7FF; border-radius: 6px; font-size: 18px; color: {INDIGO};"
+                )
         return thumb
 
     def _make_info(self, p: Path) -> QWidget:
