@@ -6,6 +6,8 @@ Contains no UI details — only orchestration logic.
 
 from __future__ import annotations
 
+import sys
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -75,6 +77,74 @@ class _OcrWorker(QThread):
 
 _SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 
+# Platform-specific Unicode font candidates (preference order)
+_SYSTEM_FONT_CANDIDATES: dict[str, list[str]] = {
+    "win32": [
+        "C:/Windows/Fonts/YuGothR.ttc",
+        "C:/Windows/Fonts/YuGothM.ttc",
+        "C:/Windows/Fonts/meiryo.ttc",
+        "C:/Windows/Fonts/msgothic.ttc",
+    ],
+    "darwin": [
+        "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/Library/Fonts/Arial Unicode MS.ttf",
+    ],
+    "linux": [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJKjp-Regular.otf",
+        "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+    ],
+}
+
+
+def _find_system_unicode_font() -> str | None:
+    """Return the path of a Unicode-capable font on the current platform, or None."""
+    key = sys.platform if sys.platform in _SYSTEM_FONT_CANDIDATES else "linux"
+    for candidate in _SYSTEM_FONT_CANDIDATES[key]:
+        if Path(candidate).exists():
+            return candidate
+    return None
+
+
+@lru_cache(maxsize=1)
+def _resolve_ocr_font() -> str:
+    """Register and return a Unicode-capable font name for invisible OCR text.
+
+    Priority:
+        1. reportlab built-in CID font ``HeiseiKakuGo-W5``
+           — no external files required, supports Japanese out of the box.
+        2. Platform-specific system TTF/TTC font discovered at runtime.
+        3. ``"Helvetica"`` — PDF standard font, ASCII only, always available.
+
+    Cached via ``lru_cache`` so font registration happens at most once per process.
+    """
+    from reportlab.pdfbase import pdfmetrics  # noqa: PLC0415
+
+    # 1. reportlab built-in CID font — most portable, no font file needed
+    try:
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont  # noqa: PLC0415
+        name = "HeiseiKakuGo-W5"
+        pdfmetrics.registerFont(UnicodeCIDFont(name))
+        return name
+    except Exception:  # noqa: BLE001
+        pass
+
+    # 2. Platform-specific system font
+    font_path = _find_system_unicode_font()
+    if font_path:
+        try:
+            from reportlab.pdfbase.ttfonts import TTFont  # noqa: PLC0415
+            name = "_OcrUnicodeFont"
+            pdfmetrics.registerFont(TTFont(name, font_path))
+            return name
+        except Exception:  # noqa: BLE001
+            pass
+
+    # 3. Last resort — standard PDF font, ASCII only
+    return "Helvetica"
+
 
 def _collect_image_paths(sources: list[str], sort_by_name: bool) -> list[str]:
     """sources (ファイルまたはフォルダのパスリスト) から画像ファイルパスリストを作る。"""
@@ -133,7 +203,7 @@ def _build_pdf(
                 font_size = max(4, int(h * scale_y * 0.9))
                 tx = c.beginText(pdf_x, pdf_y)
                 tx.setTextRenderMode(3)  # 3 = invisible (PDF spec §9.3.6)
-                tx.setFont("Helvetica", font_size)
+                tx.setFont(_resolve_ocr_font(), font_size)
                 tx.textLine(r.text)
                 c.drawText(tx)
 
