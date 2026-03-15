@@ -108,7 +108,7 @@ class FilePanel(QWidget):
         layout.addStretch()
 
         clear_btn = QPushButton("🗑  クリア")
-        clear_btn.setCursor(Qt.PointingHandCursor)
+        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         clear_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {BG_GRAY}; color: {TEXT_MUTED};
@@ -125,7 +125,7 @@ class FilePanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self._list_container = QWidget()
         self._list_container.setStyleSheet("background: transparent;")
@@ -156,7 +156,10 @@ class FilePanel(QWidget):
         if path in self._files:
             self._files.remove(path)
         for i in range(self._list_layout.count()):
-            w = self._list_layout.itemAt(i).widget()
+            layout_item = self._list_layout.itemAt(i)
+            if layout_item is None:
+                continue
+            w = layout_item.widget()
             if isinstance(w, FileItem) and w.path == path:
                 w.deleteLater()
                 break
@@ -166,8 +169,9 @@ class FilePanel(QWidget):
         self._files.clear()
         while self._list_layout.count() > 1:
             item = self._list_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            w = item.widget() if item is not None else None
+            if w is not None:
+                w.deleteLater()
         self._notify()
 
     def _notify(self) -> None:

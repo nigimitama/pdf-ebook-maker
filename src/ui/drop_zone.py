@@ -44,7 +44,7 @@ class DropZone(QWidget):
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(10)
         layout.setContentsMargins(24, 24, 24, 24)
 
@@ -56,13 +56,13 @@ class DropZone(QWidget):
 
     def _make_icon(self) -> QLabel:
         lbl = QLabel("⬆")
-        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setStyleSheet(f"font-size: 36px; color: {BORDER_LIGHT}; background: transparent;")
         return lbl
 
     def _make_main_text(self) -> QLabel:
         lbl = QLabel("ここにファイル・フォルダをドロップ")
-        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setStyleSheet(
             f"font-size: 15px; font-weight: 600; color: {TEXT_SEC}; background: transparent;"
         )
@@ -70,13 +70,13 @@ class DropZone(QWidget):
 
     def _make_sub_text(self) -> QLabel:
         lbl = QLabel("PNG, JPG, WEBP 対応 / 複数選択可")
-        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setStyleSheet(f"font-size: 13px; color: {TEXT_MUTED}; background: transparent;")
         return lbl
 
     def _make_or_divider(self) -> QLabel:
         lbl = QLabel("— または —")
-        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setStyleSheet(f"font-size: 12px; color: {BORDER_LIGHT}; background: transparent;")
         return lbl
 
@@ -84,12 +84,12 @@ class DropZone(QWidget):
         row = QWidget()
         row.setStyleSheet("background: transparent;")
         layout = QHBoxLayout(row)
-        layout.setAlignment(Qt.AlignCenter)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(12)
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.btn_files = QPushButton("📄  ファイルを選択")
-        self.btn_files.setCursor(Qt.PointingHandCursor)
+        self.btn_files.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_files.setStyleSheet(f"""
             QPushButton {{
                 background: {CORAL}; color: white; border: none;
@@ -101,7 +101,7 @@ class DropZone(QWidget):
         """)
 
         self.btn_folder = QPushButton("📁  フォルダを選択")
-        self.btn_folder.setCursor(Qt.PointingHandCursor)
+        self.btn_folder.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_folder.setStyleSheet(f"""
             QPushButton {{
                 background: {WHITE}; color: {TEXT_SEC};

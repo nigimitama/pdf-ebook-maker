@@ -108,6 +108,11 @@ class OCREngine:
         """
         if self._detector is None:
             self.load_models(progress_cb)
+        # Guaranteed non-None after load_models(); assert to help static analysis.
+        assert self._detector is not None
+        assert self._rec30 is not None
+        assert self._rec50 is not None
+        assert self._rec100 is not None
 
         _cb = progress_cb or (lambda msg: None)
         _cb("レイアウト解析中...")
@@ -133,6 +138,7 @@ class OCREngine:
 
     def _detect_lines(self, image: np.ndarray) -> tuple[ET.Element, list[_RecogLine]]:
         """Run detector → XML → reading-order sort, return root and line objects."""
+        assert self._detector is not None  # guaranteed: called only after load_models()
         img_h, img_w = image.shape[:2]
         detections = self._detector.detect(image)
         classeslist = list(self._detector.classes.values())
@@ -165,12 +171,12 @@ class OCREngine:
         """Extract per-line image crops from the layout XML."""
         alllineobj: list[_RecogLine] = []
         for idx, lineobj in enumerate(root.findall(".//LINE")):
-            xmin = int(lineobj.get("X"))
-            ymin = int(lineobj.get("Y"))
-            line_w = int(lineobj.get("WIDTH"))
-            line_h = int(lineobj.get("HEIGHT"))
+            xmin = int(lineobj.get("X") or 0)
+            ymin = int(lineobj.get("Y") or 0)
+            line_w = int(lineobj.get("WIDTH") or 0)
+            line_h = int(lineobj.get("HEIGHT") or 0)
             try:
-                pred_char_cnt = float(lineobj.get("PRED_CHAR_CNT"))
+                pred_char_cnt = float(lineobj.get("PRED_CHAR_CNT") or 100.0)
             except (TypeError, ValueError):
                 pred_char_cnt = 100.0
             lineimg = image[ymin:ymin + line_h, xmin:xmin + line_w, :]
@@ -189,6 +195,8 @@ class OCREngine:
     ) -> list[_RecogLine]:
         """Use raw detection boxes as LINE elements when layout analysis yields nothing."""
         page = root.find("PAGE")
+        if page is None:
+            page = ET.SubElement(root, "PAGE")
         alllineobj: list[_RecogLine] = []
         for idx, det in enumerate(detections):
             xmin, ymin, xmax, ymax = det["box"]
@@ -215,12 +223,12 @@ class OCREngine:
         for idx, lineobj in enumerate(root.findall(".//LINE")):
             if idx >= len(recognized):
                 break
-            xmin = int(lineobj.get("X"))
-            ymin = int(lineobj.get("Y"))
-            line_w = int(lineobj.get("WIDTH"))
-            line_h = int(lineobj.get("HEIGHT"))
+            xmin = int(lineobj.get("X") or 0)
+            ymin = int(lineobj.get("Y") or 0)
+            line_w = int(lineobj.get("WIDTH") or 0)
+            line_h = int(lineobj.get("HEIGHT") or 0)
             try:
-                conf = float(lineobj.get("CONF", 0))
+                conf = float(lineobj.get("CONF") or 0)
             except (TypeError, ValueError):
                 conf = 0.0
             results.append(OcrResult(

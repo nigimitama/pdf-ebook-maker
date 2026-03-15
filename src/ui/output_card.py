@@ -99,7 +99,7 @@ class OutputCard(QWidget):
 
         browse_btn = QPushButton("📁  参照")
         browse_btn.setFixedHeight(40)
-        browse_btn.setCursor(Qt.PointingHandCursor)
+        browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         browse_btn.setStyleSheet(f"""
             QPushButton {{
                 background: #F0F5FF; color: {INDIGO};
@@ -132,7 +132,7 @@ class OutputCard(QWidget):
 
         ext_badge = QLabel("PDF")
         ext_badge.setFixedSize(50, 40)
-        ext_badge.setAlignment(Qt.AlignCenter)
+        ext_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ext_badge.setStyleSheet(
             f"background: {CORAL}; color: white; border-radius: 8px;"
             " font-size: 11px; font-weight: 700;"

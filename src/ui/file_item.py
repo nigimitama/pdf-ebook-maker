@@ -52,7 +52,7 @@ class FileItem(QWidget):
     def _make_thumbnail(self) -> QLabel:
         thumb = QLabel()
         thumb.setFixedSize(36, 36)
-        thumb.setAlignment(Qt.AlignCenter)
+        thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
         if self.is_dir:
             thumb.setText("📁")
             thumb.setStyleSheet(
@@ -91,7 +91,7 @@ class FileItem(QWidget):
     def _make_remove_button(self) -> QPushButton:
         btn = QPushButton("✕")
         btn.setFixedSize(24, 24)
-        btn.setCursor(Qt.PointingHandCursor)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; color: {BORDER_LIGHT};

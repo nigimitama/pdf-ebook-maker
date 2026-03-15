@@ -8,7 +8,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
-from .constants import BORDER, CORAL, INDIGO, TEXT_PRI, TEXT_SEC, WHITE
+from .constants import BORDER, CORAL, TEXT_PRI, TEXT_SEC
 
 
 class HeaderBar(QWidget):
@@ -27,7 +27,7 @@ class HeaderBar(QWidget):
 
         icon = QLabel("📖")
         icon.setFixedSize(36, 36)
-        icon.setAlignment(Qt.AlignCenter)
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon.setStyleSheet(f"background: {CORAL}; border-radius: 10px; font-size: 18px;")
 
         title = QLabel("PDF Ebook Maker")

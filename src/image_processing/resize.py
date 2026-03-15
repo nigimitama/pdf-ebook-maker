@@ -30,8 +30,10 @@ def resize_image(
     elif target_width:
         new_w = target_width
         new_h = round(h / w * new_w)
-    else:
+    elif target_height:
         new_h = target_height
         new_w = round(w / h * new_h)
+    else:
+        return image  # unreachable: both None was handled at entry
 
     return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)

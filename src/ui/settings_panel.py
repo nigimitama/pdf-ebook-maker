@@ -242,7 +242,7 @@ class SettingsPanel(QWidget):
 
         self._run_btn = QPushButton("▶   PDF を生成する")
         self._run_btn.setFixedHeight(56)
-        self._run_btn.setCursor(Qt.PointingHandCursor)
+        self._run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._run_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {CORAL}; color: white;

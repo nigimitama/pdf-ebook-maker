@@ -24,3 +24,22 @@ dev = [
     "pyright>=1.1.408",
     "ruff>=0.15.6",
 ]
+
+[tool.ruff]
+# Third-party vendored OCR code — do not lint
+exclude = [
+    "src/ocr/ndl_parser.py",
+    "src/ocr/parseq.py",
+    "src/ocr/deim.py",
+    "src/ocr/reading_order",
+]
+
+[tool.pyright]
+pythonVersion = "3.12"
+# Third-party vendored OCR code — do not type-check
+ignore = [
+    "src/ocr/ndl_parser.py",
+    "src/ocr/parseq.py",
+    "src/ocr/deim.py",
+    "src/ocr/reading_order",
+]

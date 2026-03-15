@@ -18,7 +18,7 @@ class _RecogLine:
 
     __slots__ = ("npimg", "idx", "pred_char_cnt", "pred_str")
 
-    def __init__(self, npimg: np.ndarray, idx: int, pred_char_cnt: float, pred_str: str = "") -> None:
+    def __init__(self, npimg: np.ndarray | None, idx: int, pred_char_cnt: float, pred_str: str = "") -> None:
         self.npimg = npimg
         self.idx = idx
         self.pred_char_cnt = pred_char_cnt
@@ -88,7 +88,7 @@ def _run_wide_stage(
 
     for lineobj, pred_str in zip(targets, results):
         lineobj.pred_str = pred_str
-        if len(pred_str) >= 98 and lineobj.npimg.shape[0] < lineobj.npimg.shape[1]:
+        if lineobj.npimg is not None and len(pred_str) >= 98 and lineobj.npimg.shape[0] < lineobj.npimg.shape[1]:
             base = lineobj.npimg
             half = base.shape[1] // 2
             split_pairs.append(_RecogLine(base[:, :half, :], lineobj.idx, 100))
