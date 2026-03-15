@@ -37,6 +37,8 @@ _CB_STYLE = f"""
     }}
 """
 
+_TRANSPARENT = "background: transparent; border: none; border-radius: 0;"
+
 _SPINBOX_STYLE = f"""
     QSpinBox, QDoubleSpinBox {{
         background: {BG_GRAY}; border: 1px solid {BORDER_LIGHT};
@@ -140,7 +142,7 @@ class SettingsPanel(QWidget):
     def _make_contrast_section(self) -> QWidget:
         """Checkbox + brightness/gamma spinboxes for image contrast adjustment."""
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setStyleSheet(_TRANSPARENT)
         v = QVBoxLayout(container)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(6)
@@ -152,7 +154,7 @@ class SettingsPanel(QWidget):
 
         # Params row — indented under the checkbox
         self._contrast_params = QWidget()
-        self._contrast_params.setStyleSheet("background: transparent;")
+        self._contrast_params.setStyleSheet(_TRANSPARENT)
         self._contrast_params.setEnabled(False)
         row = QHBoxLayout(self._contrast_params)
         row.setContentsMargins(28, 0, 0, 0)
@@ -192,7 +194,7 @@ class SettingsPanel(QWidget):
     def _make_resize_section(self) -> QWidget:
         """Two checkbox+spinbox rows for width and height resize targets."""
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setStyleSheet(_TRANSPARENT)
         v = QVBoxLayout(container)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(4)
@@ -205,7 +207,7 @@ class SettingsPanel(QWidget):
     ) -> tuple[QCheckBox, QSpinBox]:
         """Return a (checkbox, spinbox) pair and append the row widget to layout."""
         row_widget = QWidget()
-        row_widget.setStyleSheet("background: transparent;")
+        row_widget.setStyleSheet(_TRANSPARENT)
         row = QHBoxLayout(row_widget)
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(8)
