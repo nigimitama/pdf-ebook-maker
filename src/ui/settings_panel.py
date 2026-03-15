@@ -145,6 +145,7 @@ class SettingsPanel(QWidget):
         v.setSpacing(6)
 
         self._cb_contrast = QCheckBox("画像のコントラストを調整")
+        self._cb_contrast.setChecked(True)
         self._cb_contrast.setStyleSheet(_CB_STYLE)
         v.addWidget(self._cb_contrast)
 
