@@ -1,0 +1,62 @@
+This directory contains code derived from ndlocr-lite, published by the
+National Diet Library of Japan (国立国会図書館).
+
+  Project : NDLOCR-Lite
+  Author  : National Diet Library, Japan (国立国会図書館)
+  Source  : https://github.com/ndl-lab/ndlocr-lite
+  License : Creative Commons Attribution 4.0 International (CC BY 4.0)
+            https://creativecommons.org/licenses/by/4.0/
+
+The following files were copied from ndlocr-lite without modification
+(other than the addition of this attribution comment):
+
+  deim.py          ← src/deim.py
+  parseq.py        ← src/parseq.py
+  ndl_parser.py    ← src/ndl_parser.py
+  reading_order/utils/logger.py    ← src/reading_order/utils/logger.py
+  reading_order/utils/time.py      ← src/reading_order/utils/time.py
+  reading_order/utils/xml.py       ← src/reading_order/utils/xml.py
+  config/NDLmoji.yaml              ← src/config/NDLmoji.yaml
+  config/ndl.yaml                  ← src/config/ndl.yaml
+  model/*.onnx                     ← src/model/*.onnx
+
+The following files are derived from ndlocr-lite sources and have been
+modified.  Each file carries a header comment identifying the original
+source and describing the nature of the modifications:
+
+  reading_order/xy_cut/block_xy_cut.py  ← src/reading_order/xy_cut/block_xy_cut.py
+    Modified: converted absolute imports to relative imports.
+
+  reading_order/xy_cut/eval.py          ← src/reading_order/xy_cut/eval.py
+    Modified: converted absolute imports to relative imports;
+              simplified to the eval_xml entry point only.
+
+  reading_order/order/reorder.py        ← src/reading_order/order/reorder.py
+    Modified: converted absolute imports to relative imports.
+
+  reading_order/order/smooth_order.py   ← src/reading_order/order/smooth_order.py
+    Modified: converted absolute imports to relative imports.
+
+  reading_order/order/warichu_block.py  ← src/reading_order/order/warichu_block.py
+    Modified: converted absolute imports to relative imports.
+
+The following file is newly written for this project but incorporates
+logic derived from ndlocr-lite/src/ocr.py:
+
+  engine.py
+    Derived from: src/ocr.py
+    Modifications: restructured as a reusable Python class (OCREngine);
+                   removed CLI argument parsing and file I/O;
+                   added lazy model loading and progress callbacks.
+
+-------------------------------------------------------------------------------
+CC BY 4.0 requires that any distribution of this material (including in
+modified form) must:
+  1. Identify the creator(s) — National Diet Library, Japan.
+  2. Include or link to this copyright notice.
+  3. Include or link to the CC BY 4.0 license text.
+  4. Indicate whether modifications were made.
+  5. Not restrict recipients from exercising rights under the license.
+
+Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
+-------------------------------------------------------------------------------
