@@ -6,225 +6,29 @@ Contains no UI details — only orchestration logic.
 
 from __future__ import annotations
 
-import sys
-from functools import lru_cache
-from pathlib import Path
-
-import numpy as np
-from PIL import Image
-from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QVBoxLayout, QWidget
 
 from .constants import BG_GRAY
 from .file_panel import FilePanel
 from .header_bar import HeaderBar
-from .settings_panel import RunOptions, SettingsPanel
-
-
-class _OcrWorker(QThread):
-    """バックグラウンドスレッドで画像リストにOCRを実行するワーカー。
-
-    Signals:
-        progress(int, str, str): (percent 0-100, message, note)
-        finished():              正常終了
-        error(str):              エラーメッセージ
-    """
-
-    progress = Signal(int, str, str)
-    finished = Signal()
-    error = Signal(str)
-
-    def __init__(self, files: list[str], opts: RunOptions) -> None:
-        super().__init__()
-        self._files = files
-        self._opts = opts
-
-    def run(self) -> None:
-        try:
-            # 対象ファイルリストを展開
-            image_paths = _collect_image_paths(self._files, self._opts.sort_by_name)
-            if not image_paths:
-                self.error.emit("処理できる画像ファイルが見つかりませんでした。")
-                return
-
-            total = len(image_paths)
-            ocr_results: dict[str, list] = {}  # path → list[OcrResult]
-
-            if self._opts.run_ocr:
-                from ocr import OCREngine
-                engine = OCREngine()
-
-                def _ocr_progress(msg: str) -> None:
-                    self.progress.emit(0, msg, "")
-
-                engine.load_models(_ocr_progress)
-
-                for i, path in enumerate(image_paths):
-                    pct = int((i / total) * 80)
-                    self.progress.emit(pct, f"OCR処理中 ({i+1}/{total})", Path(path).name)
-                    pil_img = Image.open(path).convert("RGB")
-                    img_np = np.array(pil_img)
-                    ocr_results[path] = engine.run(img_np)
-
-            self.progress.emit(85, "PDF生成中...", "")
-            _build_pdf(image_paths, self._opts, ocr_results)
-            self.progress.emit(100, "完了！", "")
-            self.finished.emit()
-
-        except Exception as exc:  # noqa: BLE001
-            self.error.emit(str(exc))
-
-
-_SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
-
-# Platform-specific Unicode font candidates (preference order)
-_SYSTEM_FONT_CANDIDATES: dict[str, list[str]] = {
-    "win32": [
-        "C:/Windows/Fonts/YuGothR.ttc",
-        "C:/Windows/Fonts/YuGothM.ttc",
-        "C:/Windows/Fonts/meiryo.ttc",
-        "C:/Windows/Fonts/msgothic.ttc",
-    ],
-    "darwin": [
-        "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
-        "/System/Library/Fonts/Hiragino Sans GB.ttc",
-        "/Library/Fonts/Arial Unicode MS.ttf",
-    ],
-    "linux": [
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansCJKjp-Regular.otf",
-        "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
-    ],
-}
-
-
-def _find_system_unicode_font() -> str | None:
-    """Return the path of a Unicode-capable font on the current platform, or None."""
-    key = sys.platform if sys.platform in _SYSTEM_FONT_CANDIDATES else "linux"
-    for candidate in _SYSTEM_FONT_CANDIDATES[key]:
-        if Path(candidate).exists():
-            return candidate
-    return None
-
-
-@lru_cache(maxsize=1)
-def _resolve_ocr_font() -> str:
-    """Register and return a Unicode-capable font name for invisible OCR text.
-
-    Priority:
-        1. reportlab built-in CID font ``HeiseiKakuGo-W5``
-           — no external files required, supports Japanese out of the box.
-        2. Platform-specific system TTF/TTC font discovered at runtime.
-        3. ``"Helvetica"`` — PDF standard font, ASCII only, always available.
-
-    Cached via ``lru_cache`` so font registration happens at most once per process.
-    """
-    from reportlab.pdfbase import pdfmetrics  # noqa: PLC0415
-
-    # 1. reportlab built-in CID font — most portable, no font file needed
-    try:
-        from reportlab.pdfbase.cidfonts import UnicodeCIDFont  # noqa: PLC0415
-        name = "HeiseiKakuGo-W5"
-        pdfmetrics.registerFont(UnicodeCIDFont(name))
-        return name
-    except Exception:  # noqa: BLE001
-        pass
-
-    # 2. Platform-specific system font
-    font_path = _find_system_unicode_font()
-    if font_path:
-        try:
-            from reportlab.pdfbase.ttfonts import TTFont  # noqa: PLC0415
-            name = "_OcrUnicodeFont"
-            pdfmetrics.registerFont(TTFont(name, font_path))
-            return name
-        except Exception:  # noqa: BLE001
-            pass
-
-    # 3. Last resort — standard PDF font, ASCII only
-    return "Helvetica"
-
-
-def _collect_image_paths(sources: list[str], sort_by_name: bool) -> list[str]:
-    """sources (ファイルまたはフォルダのパスリスト) から画像ファイルパスリストを作る。"""
-    paths: list[str] = []
-    for src in sources:
-        p = Path(src)
-        if p.is_dir():
-            paths.extend(
-                str(f) for f in p.iterdir()
-                if f.is_file() and f.suffix.lower() in _SUPPORTED_EXTS
-            )
-        elif p.suffix.lower() in _SUPPORTED_EXTS:
-            paths.append(str(p))
-    if sort_by_name:
-        paths.sort(key=lambda x: Path(x).name.lower())
-    return paths
-
-
-def _build_pdf(
-    image_paths: list[str],
-    opts: RunOptions,
-    ocr_results: dict[str, list],
-) -> None:
-    """画像リストからPDFを生成する。OCR結果がある場合は不可視テキストレイヤーを埋め込む。"""
-    from reportlab.lib.pagesizes import A4
-    from reportlab.pdfgen import canvas as rl_canvas
-
-    out_path = str(Path(opts.output_dir) / (opts.output_name + ".pdf"))
-    c = rl_canvas.Canvas(out_path)
-
-    for path in image_paths:
-        pil_img = Image.open(path).convert("RGB")
-        img_w, img_h = pil_img.size
-
-        if opts.fit_page:
-            page_w, page_h = A4
-        else:
-            page_w, page_h = float(img_w), float(img_h)
-
-        c.setPageSize((page_w, page_h))
-
-        # スケール係数
-        scale_x = page_w / img_w
-        scale_y = page_h / img_h
-
-        c.drawInlineImage(pil_img, 0, 0, width=page_w, height=page_h)
-
-        # OCRテキストを不可視レイヤーとして埋め込む（テキスト描画モード3=invisible）
-        results = ocr_results.get(path, [])
-        if results:
-            for r in results:
-                x, y, w, h = r.bbox
-                pdf_x = x * scale_x
-                # reportlab はY軸が下から上なので変換
-                pdf_y = page_h - (y + h) * scale_y
-                font_size = max(4, int(h * scale_y * 0.9))
-                tx = c.beginText(pdf_x, pdf_y)
-                tx.setTextRenderMode(3)  # 3 = invisible (PDF spec §9.3.6)
-                tx.setFont(_resolve_ocr_font(), font_size)
-                tx.textLine(r.text)
-                c.drawText(tx)
-
-        c.showPage()
-
-    c.save()
+from .ocr_worker import OcrWorker
+from .run_options import RunOptions
+from .settings_panel import SettingsPanel
 
 
 class MainWindow(QMainWindow):
     """Root window that assembles and coordinates all UI panels.
 
     Signal flow:
-        FilePanel.files_changed  →  _on_files_changed  →  SettingsPanel.set_run_enabled
-        SettingsPanel.run_requested  →  _on_run_requested  →  _OcrWorker (QThread)
+        FilePanel.files_changed      →  _on_files_changed   →  SettingsPanel.set_run_enabled
+        SettingsPanel.run_requested  →  _on_run_requested   →  OcrWorker (QThread)
     """
 
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("PDF Ebook Maker")
         self.setMinimumSize(1100, 780)
-        self._worker: _OcrWorker | None = None
+        self._worker: OcrWorker | None = None
         self._current_files: list[str] = []
         self._setup_ui()
 
@@ -238,12 +42,8 @@ class MainWindow(QMainWindow):
 
         self._file_panel = FilePanel()
         self._settings_panel = SettingsPanel()
-
-        # Wire inter-panel signals
         self._file_panel.files_changed.connect(self._on_files_changed)
         self._settings_panel.run_requested.connect(self._on_run_requested)
-
-        # Run button starts disabled until files are selected
         self._settings_panel.set_run_enabled(False)
 
         body = QWidget()
@@ -263,12 +63,10 @@ class MainWindow(QMainWindow):
     # ── Signal handlers ────────────────────────────────────────────────────────
 
     def _on_files_changed(self, files: list[str]) -> None:
-        """Enable the Run button only when at least one file is selected."""
         self._current_files = files
         self._settings_panel.set_run_enabled(len(files) > 0)
 
     def _on_run_requested(self, opts: RunOptions) -> None:
-        """Validate options, then kick off PDF generation in a worker thread."""
         if not opts.output_dir:
             self._settings_panel.set_progress(0, "保存先を指定してください")
             return
@@ -276,7 +74,7 @@ class MainWindow(QMainWindow):
         self._settings_panel.set_running(True)
         self._settings_panel.set_progress(0, "処理を開始します...", "")
 
-        self._worker = _OcrWorker(list(self._current_files), opts)
+        self._worker = OcrWorker(list(self._current_files), opts)
         self._worker.progress.connect(self._settings_panel.set_progress)
         self._worker.finished.connect(self._on_worker_finished)
         self._worker.error.connect(self._on_worker_error)
