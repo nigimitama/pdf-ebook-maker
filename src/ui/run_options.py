@@ -16,3 +16,5 @@ class RunOptions:
     contrast_adjust: bool = False
     brightness: int = 20
     gamma: float = 1.6
+    resize_width: int | None = None   # None = disabled
+    resize_height: int | None = None  # None = disabled

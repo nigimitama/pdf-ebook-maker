@@ -134,6 +134,7 @@ class SettingsPanel(QWidget):
         layout.addWidget(self._cb_run_ocr)
         layout.addWidget(self._cb_sort_name)
         layout.addWidget(self._make_contrast_section())
+        layout.addWidget(self._make_resize_section())
         return card
 
     def _make_contrast_section(self) -> QWidget:
@@ -188,6 +189,48 @@ class SettingsPanel(QWidget):
         self._cb_contrast.toggled.connect(self._contrast_params.setEnabled)
         return container
 
+    def _make_resize_section(self) -> QWidget:
+        """Two checkbox+spinbox rows for width and height resize targets."""
+        container = QWidget()
+        container.setStyleSheet("background: transparent;")
+        v = QVBoxLayout(container)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(4)
+        self._cb_resize_w, self._spin_resize_w = self._make_resize_row("横幅を揃える", 1080, v)
+        self._cb_resize_h, self._spin_resize_h = self._make_resize_row("縦幅を揃える", 1920, v)
+        return container
+
+    def _make_resize_row(
+        self, label: str, default_px: int, layout: QVBoxLayout
+    ) -> tuple[QCheckBox, QSpinBox]:
+        """Return a (checkbox, spinbox) pair and append the row widget to layout."""
+        row_widget = QWidget()
+        row_widget.setStyleSheet("background: transparent;")
+        row = QHBoxLayout(row_widget)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(8)
+
+        cb = QCheckBox(label)
+        cb.setStyleSheet(_CB_STYLE)
+        row.addWidget(cb)
+
+        spin = QSpinBox()
+        spin.setRange(1, 9999)
+        spin.setValue(default_px)
+        spin.setFixedWidth(72)
+        spin.setEnabled(False)
+        spin.setStyleSheet(_SPINBOX_STYLE)
+        row.addWidget(spin)
+
+        row.addWidget(_lbl(
+            "px", f"font-size:12px; color:{TEXT_SEC}; background:transparent; border:none;"
+        ))
+        row.addStretch()
+
+        cb.toggled.connect(spin.setEnabled)
+        layout.addWidget(row_widget)
+        return cb, spin
+
     def _make_run_section(self) -> QWidget:
         container = QWidget()
         container.setStyleSheet("background: transparent;")
@@ -227,4 +270,6 @@ class SettingsPanel(QWidget):
             contrast_adjust=self._cb_contrast.isChecked(),
             brightness=self._spin_brightness.value(),
             gamma=self._spin_gamma.value(),
+            resize_width=self._spin_resize_w.value() if self._cb_resize_w.isChecked() else None,
+            resize_height=self._spin_resize_h.value() if self._cb_resize_h.isChecked() else None,
         ))

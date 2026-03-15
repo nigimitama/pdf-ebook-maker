@@ -49,6 +49,8 @@ class OcrWorker(QThread):
                 contrast_adjust=self._opts.contrast_adjust,
                 brightness=self._opts.brightness,
                 gamma=self._opts.gamma,
+                resize_width=self._opts.resize_width,
+                resize_height=self._opts.resize_height,
             )
             self.progress.emit(100, "完了！", "")
             self.finished.emit()

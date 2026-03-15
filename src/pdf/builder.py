@@ -39,6 +39,8 @@ def build_pdf(
     contrast_adjust: bool = False,
     brightness: int = 20,
     gamma: float = 1.6,
+    resize_width: int | None = None,
+    resize_height: int | None = None,
 ) -> None:
     """Build a PDF from image_paths, embedding an invisible OCR text layer when provided.
 
@@ -50,6 +52,8 @@ def build_pdf(
     contrast_adjust: Apply gamma + brightness correction before embedding images.
     brightness:      Additive brightness offset (used when contrast_adjust=True).
     gamma:           Gamma correction value (used when contrast_adjust=True).
+    resize_width:    Target width in px; height scales proportionally (None = disabled).
+    resize_height:   Target height in px; width scales proportionally (None = disabled).
     """
     from reportlab.pdfgen import canvas as rl_canvas  # noqa: PLC0415
 
@@ -58,6 +62,8 @@ def build_pdf(
 
     for path in image_paths:
         pil_img = Image.open(path).convert("RGB")
+        if resize_width or resize_height:
+            pil_img = _apply_resize(pil_img, target_width=resize_width, target_height=resize_height)
         if contrast_adjust:
             pil_img = _apply_contrast(pil_img, brightness=brightness, gamma=gamma)
         img_w, img_h = pil_img.size
@@ -72,6 +78,13 @@ def build_pdf(
         c.showPage()
 
     c.save()
+
+
+def _apply_resize(img: Image.Image, *, target_width: int | None, target_height: int | None) -> Image.Image:
+    """Resize image via image_processing.resize_image (aspect-ratio preserving)."""
+    from image_processing import resize_image  # noqa: PLC0415
+    arr = resize_image(np.array(img), target_width=target_width, target_height=target_height)
+    return Image.fromarray(arr)
 
 
 def _apply_contrast(img: Image.Image, *, brightness: int, gamma: float) -> Image.Image:
