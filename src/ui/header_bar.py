@@ -36,15 +36,7 @@ class HeaderBar(QWidget):
         subtitle = QLabel("複数画像からPDFを生成")
         subtitle.setStyleSheet(f"font-size: 13px; color: {TEXT_SEC};")
 
-        badge = QLabel("v1.0")
-        badge.setStyleSheet(f"""
-            background: #F0F5FF; color: {INDIGO};
-            padding: 4px 12px; border-radius: 10px;
-            font-size: 12px; font-weight: 600;
-        """)
-
         layout.addWidget(icon)
         layout.addWidget(title)
         layout.addWidget(subtitle)
         layout.addStretch()
-        layout.addWidget(badge)
