@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build executable
+        shell: bash
+        run: |
+          uv run --with pyinstaller pyinstaller \
+            --windowed \
+            --onedir \
+            --noconfirm \
+            --name pdf-ebook-maker \
+            --paths src \
+            --add-data "src/ocr/model;ocr/model" \
+            --add-data "src/ocr/config;ocr/config" \
+            src/main.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-ebook-maker-windows
+          path: dist/pdf-ebook-maker/
