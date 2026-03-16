@@ -34,7 +34,6 @@ class MainWindow(QMainWindow):
         self._preloader: ModelPreloader | None = None
         self._current_files: list[str] = []
         self._setup_ui()
-        self._start_preload()
 
     # ── UI construction ────────────────────────────────────────────────────────
 
@@ -86,6 +85,8 @@ class MainWindow(QMainWindow):
     def _on_files_changed(self, files: list[str]) -> None:
         self._current_files = files
         self._settings_panel.set_run_enabled(len(files) > 0)
+        if files and self._preloader is None:
+            self._start_preload()
 
     def _on_run_requested(self, opts: RunOptions) -> None:
         if not opts.output_dir:
