@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 
 from .constants import BG_GRAY, BORDER, CORAL, TEXT_MUTED, TEXT_PRI, TEXT_SEC, WHITE
 from .drop_zone import DropZone
-from .file_item import FileItem
+from .file_item import FileItem, _PreviewDialog
 
 
 def _lbl(text: str, style: str) -> QLabel:
@@ -167,8 +167,16 @@ class FilePanel(QWidget):
     def _insert_item(self, path: str) -> None:
         item = FileItem(path)
         item.remove_requested.connect(self._remove_path)
+        item.preview_requested.connect(self._open_preview)
         # Insert before the trailing stretch item
         self._list_layout.insertWidget(self._list_layout.count() - 1, item)
+
+    def _open_preview(self, path: str) -> None:
+        try:
+            index = self._files.index(path)
+        except ValueError:
+            index = 0
+        _PreviewDialog(self._files, index, self).exec()
 
     def _remove_path(self, path: str) -> None:
         if path in self._files:
