@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -26,10 +27,16 @@ class OcrWorker(QThread):
     finished = Signal()
     error = Signal(str)
 
-    def __init__(self, files: list[str], opts: RunOptions) -> None:
+    def __init__(
+        self,
+        files: list[str],
+        opts: RunOptions,
+        engine: Any = None,
+    ) -> None:
         super().__init__()
         self._files = files
         self._opts = opts
+        self._engine = engine  # pre-loaded OCREngine from ModelPreloader, or None
 
     def run(self) -> None:
         try:
@@ -62,7 +69,8 @@ class OcrWorker(QThread):
         from image_processing import resize_image, transform_intensity  # noqa: PLC0415
         from ocr import OCREngine  # noqa: PLC0415
 
-        engine = OCREngine()
+        engine = self._engine if self._engine is not None else OCREngine()
+        # load_models() is a no-op when models are already loaded (pre-loaded engine).
         engine.load_models(lambda msg: self.progress.emit(0, msg, ""))
 
         total = len(image_paths)

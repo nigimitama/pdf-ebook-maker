@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QVBoxLayout
 from .constants import BG_GRAY
 from .file_panel import FilePanel
 from .header_bar import HeaderBar
+from .model_preloader import ModelPreloader
 from .ocr_worker import OcrWorker
 from .run_options import RunOptions
 from .settings_panel import SettingsPanel
@@ -22,6 +23,7 @@ class MainWindow(QMainWindow):
     Signal flow:
         FilePanel.files_changed      →  _on_files_changed   →  SettingsPanel.set_run_enabled
         SettingsPanel.run_requested  →  _on_run_requested   →  OcrWorker (QThread)
+        ModelPreloader.status        →  SettingsPanel.set_progress  (startup only)
     """
 
     def __init__(self) -> None:
@@ -29,8 +31,10 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("PDF Ebook Maker")
         self.setMinimumSize(1100, 780)
         self._worker: OcrWorker | None = None
+        self._preloader: ModelPreloader | None = None
         self._current_files: list[str] = []
         self._setup_ui()
+        self._start_preload()
 
     # ── UI construction ────────────────────────────────────────────────────────
 
@@ -60,6 +64,23 @@ class MainWindow(QMainWindow):
         root.addWidget(HeaderBar())
         root.addWidget(body, stretch=1)
 
+    # ── Model preloading ───────────────────────────────────────────────────────
+
+    def _start_preload(self) -> None:
+        """Start loading OCR models in the background immediately at startup."""
+        from ocr import OCREngine  # noqa: PLC0415
+
+        if not OCREngine.is_available():
+            return
+        self._preloader = ModelPreloader()
+        self._preloader.status.connect(
+            lambda msg: self._settings_panel.set_progress(0, msg, "")
+        )
+        self._preloader.finished.connect(
+            lambda: self._settings_panel.set_progress(0, "OCRモデルの準備完了", "")
+        )
+        self._preloader.start()
+
     # ── Signal handlers ────────────────────────────────────────────────────────
 
     def _on_files_changed(self, files: list[str]) -> None:
@@ -74,7 +95,14 @@ class MainWindow(QMainWindow):
         self._settings_panel.set_running(True)
         self._settings_panel.set_progress(0, "処理を開始します...", "")
 
-        self._worker = OcrWorker(list(self._current_files), opts)
+        # Use pre-loaded engine if ready; otherwise OcrWorker loads it on demand.
+        engine = (
+            self._preloader.engine
+            if self._preloader is not None and self._preloader.isFinished()
+            else None
+        )
+
+        self._worker = OcrWorker(list(self._current_files), opts, engine=engine)
         self._worker.progress.connect(self._settings_panel.set_progress)
         self._worker.finished.connect(self._on_worker_finished)
         self._worker.error.connect(self._on_worker_error)
