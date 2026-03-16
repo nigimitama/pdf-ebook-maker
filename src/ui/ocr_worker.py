@@ -59,6 +59,7 @@ class OcrWorker(QThread):
             self.error.emit(str(exc))
 
     def _run_ocr(self, image_paths: list[str]) -> dict[str, list]:
+        from image_processing import resize_image, transform_intensity  # noqa: PLC0415
         from ocr import OCREngine  # noqa: PLC0415
 
         engine = OCREngine()
@@ -70,5 +71,19 @@ class OcrWorker(QThread):
             pct = int((i / total) * 80)
             self.progress.emit(pct, f"OCR処理中 ({i + 1}/{total})", Path(path).name)
             img_np = np.array(Image.open(path).convert("RGB"))
+            # Apply the same transforms used by build_pdf so OCR bboxes
+            # are in the processed image's coordinate space.
+            if self._opts.resize_width or self._opts.resize_height:
+                img_np = resize_image(
+                    img_np,
+                    target_width=self._opts.resize_width,
+                    target_height=self._opts.resize_height,
+                )
+            if self._opts.contrast_adjust:
+                img_np = transform_intensity(
+                    img_np,
+                    brightness=self._opts.brightness,
+                    gamma=self._opts.gamma,
+                )
             results[path] = engine.run(img_np)
         return results
