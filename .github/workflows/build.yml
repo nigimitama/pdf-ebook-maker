@@ -24,7 +24,7 @@ jobs:
         run: |
           uv run --with pyinstaller pyinstaller \
             --windowed \
-            --onedir \
+            --onefile \
             --noconfirm \
             --name pdf-ebook-maker \
             --paths src \
