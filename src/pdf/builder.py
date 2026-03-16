@@ -96,13 +96,32 @@ def _apply_contrast(img: Image.Image, *, brightness: int, gamma: float) -> Image
 
 def _embed_ocr_layer(c, results: list, scale_x: float, scale_y: float, page_h: float) -> None:
     """Draw invisible OCR text over the current canvas page (PDF spec §9.3.6)."""
+    font_name = resolve_ocr_font()
     for r in results:
+        if not r.text:
+            continue
         x, y, w, h = r.bbox
+        bbox_w = w * scale_x
+        bbox_h = h * scale_y
         pdf_x = x * scale_x
         pdf_y = page_h - (y + h) * scale_y  # reportlab Y-axis is bottom-up
-        font_size = max(4, int(h * scale_y * 0.9))
+
+        if r.is_vertical:
+            # Vertical text: characters stacked in a narrow column.
+            # Column width drives font size; text is stretched to fill column height.
+            font_size = max(4.0, bbox_w)
+            span = bbox_h
+        else:
+            # Horizontal text: line height drives font size; text is stretched to fill line width.
+            font_size = max(4.0, bbox_h)
+            span = bbox_w
+
+        natural_w = c.stringWidth(r.text, font_name, font_size)
+        horiz_scale = (span / natural_w * 100.0) if natural_w > 0 else 100.0
+
         tx = c.beginText(pdf_x, pdf_y)
         tx.setTextRenderMode(3)  # 3 = invisible
-        tx.setFont(resolve_ocr_font(), font_size)
+        tx.setFont(font_name, font_size)
+        tx.setHorizScale(horiz_scale)
         tx.textLine(r.text)
         c.drawText(tx)
