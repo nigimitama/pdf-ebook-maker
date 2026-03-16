@@ -199,6 +199,7 @@ class SettingsPanel(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(4)
         self._cb_resize_w, self._spin_resize_w = self._make_resize_row("横幅を揃える", 1080, v)
+        self._cb_resize_w.setChecked(True)
         self._cb_resize_h, self._spin_resize_h = self._make_resize_row("縦幅を揃える", 1920, v)
         return container
 
