@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
 from .constants import BG_GRAY, BORDER, CORAL, TEXT_MUTED, TEXT_PRI, TEXT_SEC, WHITE
 from .drop_zone import DropZone
 from .file_item import FileItem, _PreviewDialog
+
+_BATCH_SIZE = 5  # widgets inserted per event-loop tick
 
 
 def _lbl(text: str, style: str) -> QLabel:
@@ -161,11 +163,22 @@ class FilePanel(QWidget):
         expanded = [p for p in self._expand(paths) if p not in self._files]
         if not expanded:
             return
-        self._count_badge.setText("追加中...")
-        for p in expanded:
-            self._files.append(p)
+        self._files.extend(expanded)
+        self._count_badge.setText(f"追加中... (0 / {len(expanded)})")
+        # Defer first batch so the badge repaints before any widget creation
+        QTimer.singleShot(0, lambda: self._insert_batch(expanded, 0))
+
+    def _insert_batch(self, pending: list[str], offset: int) -> None:
+        """Insert one batch of FileItem widgets, then schedule the next batch."""
+        batch = pending[offset : offset + _BATCH_SIZE]
+        for p in batch:
             self._insert_item(p)
-        self._notify()
+        done = offset + len(batch)
+        if done < len(pending):
+            self._count_badge.setText(f"追加中... ({done} / {len(pending)})")
+            QTimer.singleShot(0, lambda: self._insert_batch(pending, done))
+        else:
+            self._notify()
 
     def _insert_item(self, path: str) -> None:
         item = FileItem(path)
