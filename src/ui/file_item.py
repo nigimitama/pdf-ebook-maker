@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -47,6 +47,29 @@ def _rounded_pixmap(path: str, size: int = _THUMB_SIZE, radius: int = 6) -> QPix
     painter.end()
     return rounded
 
+
+# ── Async thumbnail loader ──────────────────────────────────────────────────────
+
+class _ThumbnailSignals(QObject):
+    ready = Signal(QPixmap)
+
+
+class _ThumbnailWorker(QRunnable):
+    """Loads and round-crops a thumbnail in a thread-pool worker thread."""
+
+    def __init__(self, path: str) -> None:
+        super().__init__()
+        self.path = path
+        self.signals = _ThumbnailSignals()
+        self.setAutoDelete(True)
+
+    def run(self) -> None:
+        px = _rounded_pixmap(self.path)
+        if px is not None:
+            self.signals.ready.emit(px)
+
+
+# ── Preview dialog ─────────────────────────────────────────────────────────────
 
 class _PreviewDialog(QDialog):
     """Full-screen dark-overlay image preview with keyboard navigation.
@@ -118,11 +141,17 @@ class _PreviewDialog(QDialog):
             super().keyPressEvent(event)
 
 
+# ── FileItem ───────────────────────────────────────────────────────────────────
+
 class FileItem(QWidget):
     """Displays one image-file row: thumbnail, name, file size, remove button.
 
+    The thumbnail is loaded asynchronously so the row appears instantly even
+    for large images. A placeholder is shown until loading completes.
+
     Signals:
         remove_requested(str): emitted with ``path`` when the remove button is clicked.
+        preview_requested(str): emitted with ``path`` when the thumbnail is clicked.
     """
 
     remove_requested = Signal(str)
@@ -131,7 +160,9 @@ class FileItem(QWidget):
     def __init__(self, path: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.path = path
+        self._thumb: QLabel | None = None
         self._build(Path(path))
+        self._start_thumbnail_load()
 
     # ── UI construction ────────────────────────────────────────────────────────
 
@@ -149,21 +180,33 @@ class FileItem(QWidget):
         """)
 
     def _make_thumbnail(self) -> QLabel:
+        """Return a placeholder label; async loader will replace its content."""
         thumb = QLabel()
         thumb.setFixedSize(_THUMB_SIZE, _THUMB_SIZE)
         thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        px = _rounded_pixmap(self.path)
-        if px is not None:
-            thumb.setPixmap(px)
-            thumb.setStyleSheet("background: transparent;")
-            thumb.setCursor(Qt.CursorShape.PointingHandCursor)
-            thumb.mousePressEvent = lambda _: self.preview_requested.emit(self.path)  # type: ignore[method-assign]
-        else:
-            thumb.setText("🖼")
-            thumb.setStyleSheet(
-                f"background: #E0E7FF; border-radius: 6px; font-size: 18px; color: {INDIGO};"
-            )
+        thumb.setText("🖼")
+        thumb.setStyleSheet(
+            f"background: #E0E7FF; border-radius: 6px; font-size: 18px; color: {INDIGO};"
+        )
+        self._thumb = thumb
         return thumb
+
+    def _start_thumbnail_load(self) -> None:
+        worker = _ThumbnailWorker(self.path)
+        worker.signals.ready.connect(self._on_thumbnail_ready)
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_thumbnail_ready(self, px: QPixmap) -> None:
+        """Called in the main thread (Qt AutoConnection) when the worker finishes."""
+        if self._thumb is None:
+            return
+        self._thumb.setPixmap(px)
+        self._thumb.setText("")
+        self._thumb.setStyleSheet("background: transparent;")
+        self._thumb.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._thumb.mousePressEvent = (  # type: ignore[method-assign]
+            lambda _: self.preview_requested.emit(self.path)
+        )
 
     def _make_info(self, p: Path) -> QWidget:
         widget = QWidget()

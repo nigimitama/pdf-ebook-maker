@@ -158,10 +158,13 @@ class FilePanel(QWidget):
         return result
 
     def _add_paths(self, paths: list[str]) -> None:
-        for p in self._expand(paths):
-            if p not in self._files:
-                self._files.append(p)
-                self._insert_item(p)
+        expanded = [p for p in self._expand(paths) if p not in self._files]
+        if not expanded:
+            return
+        self._count_badge.setText("追加中...")
+        for p in expanded:
+            self._files.append(p)
+            self._insert_item(p)
         self._notify()
 
     def _insert_item(self, path: str) -> None:
