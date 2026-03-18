@@ -1,30 +1,27 @@
-"""FilePanel — left panel that owns the file/folder selection list.
+"""FilePanel — left panel for file/folder drop and basic options.
 
-Responsibility: manage the list of selected paths; surface file/folder dialogs.
-Emits ``files_changed`` whenever the list changes so the parent can react
-(e.g. enable/disable the Run button) without knowing about file-list internals.
+Responsibility: collect the list of image paths via drag-and-drop or dialogs.
+Emits ``files_changed`` whenever the selection changes.
+File viewing and per-page management is handled by StructurePanel (Step 2).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
 from .constants import BG_GRAY, BORDER, CORAL, TEXT_MUTED, TEXT_PRI, TEXT_SEC, WHITE
 from .drop_zone import DropZone
-from .file_item import FileItem, _PreviewDialog
-
-_BATCH_SIZE = 5  # widgets inserted per event-loop tick
+from .progress_card import ProgressCard  # noqa: E402
 
 
 def _lbl(text: str, style: str) -> QLabel:
@@ -34,7 +31,7 @@ def _lbl(text: str, style: str) -> QLabel:
 
 
 class FilePanel(QWidget):
-    """Left panel: drag-and-drop zone + scrollable selected-files list.
+    """Left panel: drag-and-drop zone for collecting image file paths.
 
     Signals:
         files_changed(list[str]): emitted whenever the selection changes.
@@ -48,7 +45,7 @@ class FilePanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._files: list[str] = []
-        self.setFixedWidth(660)
+        self.setFixedWidth(420)
         self.setStyleSheet(f"background: {WHITE}; border-right: 1px solid {BORDER};")
         self._setup_ui()
 
@@ -58,6 +55,9 @@ class FilePanel(QWidget):
     def files(self) -> list[str]:
         """Read-only snapshot of the current selection."""
         return list(self._files)
+
+    def set_progress(self, value: int, message: str, note: str = "") -> None:
+        self._progress_card.set_progress(value, message, note)
 
     # ── UI construction ────────────────────────────────────────────────────────
 
@@ -70,9 +70,11 @@ class FilePanel(QWidget):
         layout.addSpacing(16)
         layout.addWidget(self._make_drop_zone())
         layout.addSpacing(16)
-        layout.addWidget(self._make_list_header())
-        layout.addSpacing(8)
-        layout.addWidget(self._make_file_list_scroll(), stretch=1)
+        layout.addWidget(self._make_clear_row())
+        layout.addStretch()
+        self._progress_card = ProgressCard()
+        layout.addSpacing(16)
+        layout.addWidget(self._progress_card)
 
     def _make_section_header(self) -> QWidget:
         widget = QWidget()
@@ -95,24 +97,21 @@ class FilePanel(QWidget):
         return widget
 
     def _make_drop_zone(self) -> DropZone:
-        zone = DropZone()
-        zone.files_dropped.connect(self._add_paths)
-        zone.btn_files.clicked.connect(self._browse_files)
-        zone.btn_folder.clicked.connect(self._browse_folder)
-        return zone
+        self._drop_zone = DropZone()
+        self._drop_zone.files_dropped.connect(self._add_paths)
+        self._drop_zone.btn_files.clicked.connect(self._browse_files)
+        self._drop_zone.btn_folder.clicked.connect(self._browse_folder)
+        return self._drop_zone
 
-    def _make_list_header(self) -> QWidget:
+    def _make_clear_row(self) -> QWidget:
         widget = QWidget()
         widget.setStyleSheet("background: transparent;")
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-
-        layout.addWidget(_lbl("選択済みファイル", f"font-size:14px; font-weight:600; color:{TEXT_PRI};"))
+        layout.setSpacing(0)
         layout.addStretch()
 
         clear_btn = QPushButton("🗑  クリア")
-        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         clear_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {BG_GRAY}; color: {TEXT_MUTED};
@@ -125,23 +124,7 @@ class FilePanel(QWidget):
         layout.addWidget(clear_btn)
         return widget
 
-    def _make_file_list_scroll(self) -> QScrollArea:
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-
-        self._list_container = QWidget()
-        self._list_container.setStyleSheet("background: transparent;")
-        self._list_layout = QVBoxLayout(self._list_container)
-        self._list_layout.setContentsMargins(0, 0, 4, 0)
-        self._list_layout.setSpacing(4)
-        self._list_layout.addStretch()
-
-        scroll.setWidget(self._list_container)
-        return scroll
-
-    # ── File list management ───────────────────────────────────────────────────
+    # ── File management ────────────────────────────────────────────────────────
 
     _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 
@@ -164,60 +147,16 @@ class FilePanel(QWidget):
         if not expanded:
             return
         self._files.extend(expanded)
-        self._count_badge.setText(f"追加中... (0 / {len(expanded)})")
-        # Defer first batch so the badge repaints before any widget creation
-        QTimer.singleShot(0, lambda: self._insert_batch(expanded, 0))
-
-    def _insert_batch(self, pending: list[str], offset: int) -> None:
-        """Insert one batch of FileItem widgets, then schedule the next batch."""
-        batch = pending[offset : offset + _BATCH_SIZE]
-        for p in batch:
-            self._insert_item(p)
-        done = offset + len(batch)
-        if done < len(pending):
-            self._count_badge.setText(f"追加中... ({done} / {len(pending)})")
-            QTimer.singleShot(0, lambda: self._insert_batch(pending, done))
-        else:
-            self._notify()
-
-    def _insert_item(self, path: str) -> None:
-        item = FileItem(path)
-        item.remove_requested.connect(self._remove_path)
-        item.preview_requested.connect(self._open_preview)
-        # Insert before the trailing stretch item
-        self._list_layout.insertWidget(self._list_layout.count() - 1, item)
-
-    def _open_preview(self, path: str) -> None:
-        try:
-            index = self._files.index(path)
-        except ValueError:
-            index = 0
-        _PreviewDialog(self._files, index, self).exec()
-
-    def _remove_path(self, path: str) -> None:
-        if path in self._files:
-            self._files.remove(path)
-        for i in range(self._list_layout.count()):
-            layout_item = self._list_layout.itemAt(i)
-            if layout_item is None:
-                continue
-            w = layout_item.widget()
-            if isinstance(w, FileItem) and w.path == path:
-                w.deleteLater()
-                break
         self._notify()
 
     def _clear(self) -> None:
         self._files.clear()
-        while self._list_layout.count() > 1:
-            item = self._list_layout.takeAt(0)
-            w = item.widget() if item is not None else None
-            if w is not None:
-                w.deleteLater()
         self._notify()
 
     def _notify(self) -> None:
+        has_files = len(self._files) > 0
         self._count_badge.setText(f"{len(self._files)} ファイル選択済み")
+        self._drop_zone.setVisible(not has_files)
         self.files_changed.emit(list(self._files))
 
     # ── File dialogs ───────────────────────────────────────────────────────────

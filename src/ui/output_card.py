@@ -56,6 +56,11 @@ class OutputCard(QWidget):
     def output_name(self) -> str:
         return self._output_name.text().strip()
 
+    def set_output_name(self, name: str) -> None:
+        """Update the filename field (called when a title is inferred from OCR)."""
+        if name:
+            self._output_name.setText(name)
+
     # ── UI construction ────────────────────────────────────────────────────────
 
     def _build(self, layout: QVBoxLayout) -> None:

@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
 
 from .constants import BG_GRAY, BORDER, BORDER_LIGHT, CORAL, TEXT_MUTED, TEXT_PRI, TEXT_SEC, WHITE
 from .output_card import OutputCard
-from .progress_card import ProgressCard
 from .run_options import RunOptions
 
 __all__ = ["RunOptions", "SettingsPanel"]
@@ -73,7 +72,7 @@ class SettingsPanel(QWidget):
     """Right panel: output path/name, options, run button, progress display.
 
     Signals:
-        run_requested(RunOptions): emitted when the user clicks Run.
+        pdf_requested(): emitted when the user clicks "PDF を生成する".
 
     Public methods:
         set_run_enabled(bool)        -- enable/disable the Run button.
@@ -81,7 +80,7 @@ class SettingsPanel(QWidget):
         set_progress(int, str, str)  -- update progress bar and status text.
     """
 
-    run_requested = Signal(object)  # RunOptions
+    pdf_requested = Signal()  # emitted when user clicks "PDF を生成する"
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -96,8 +95,23 @@ class SettingsPanel(QWidget):
     def set_running(self, running: bool) -> None:
         self._run_btn.setEnabled(not running)
 
-    def set_progress(self, value: int, message: str, note: str = "") -> None:
-        self._progress_card.set_progress(value, message, note)
+    def get_options(self) -> RunOptions:
+        """Return RunOptions reflecting the current UI state."""
+        return RunOptions(
+            output_dir=self._output_card.output_dir,
+            output_name=self._output_card.output_name,
+            sort_by_name=self._cb_sort_name.isChecked(),
+            run_ocr=self._cb_run_ocr.isChecked(),
+            contrast_adjust=self._cb_contrast.isChecked(),
+            brightness=self._spin_brightness.value(),
+            gamma=self._spin_gamma.value(),
+            resize_width=self._spin_resize_w.value() if self._cb_resize_w.isChecked() else None,
+            resize_height=self._spin_resize_h.value() if self._cb_resize_h.isChecked() else None,
+        )
+
+    def set_suggested_output_name(self, name: str) -> None:
+        """Pre-fill the output filename when a title is inferred from OCR."""
+        self._output_card.set_output_name(name)
 
     # ── UI construction ────────────────────────────────────────────────────────
 
@@ -241,7 +255,7 @@ class SettingsPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
 
-        self._run_btn = QPushButton("▶   PDF を生成する")
+        self._run_btn = QPushButton("▶   PDF を生成する (Step 3)")
         self._run_btn.setFixedHeight(56)
         self._run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._run_btn.setStyleSheet(f"""
@@ -256,23 +270,10 @@ class SettingsPanel(QWidget):
         """)
         self._run_btn.clicked.connect(self._on_run_clicked)
 
-        self._progress_card = ProgressCard()
-
         layout.addWidget(self._run_btn)
-        layout.addWidget(self._progress_card)
         return container
 
     # ── Slots ──────────────────────────────────────────────────────────────────
 
     def _on_run_clicked(self) -> None:
-        self.run_requested.emit(RunOptions(
-            output_dir=self._output_card.output_dir,
-            output_name=self._output_card.output_name,
-            sort_by_name=self._cb_sort_name.isChecked(),
-            run_ocr=self._cb_run_ocr.isChecked(),
-            contrast_adjust=self._cb_contrast.isChecked(),
-            brightness=self._spin_brightness.value(),
-            gamma=self._spin_gamma.value(),
-            resize_width=self._spin_resize_w.value() if self._cb_resize_w.isChecked() else None,
-            resize_height=self._spin_resize_h.value() if self._cb_resize_h.isChecked() else None,
-        ))
+        self.pdf_requested.emit()
