@@ -85,8 +85,7 @@ class StructurePanel(QWidget):
         super().__init__(parent)
         self._structure: DocumentStructure | None = None
         self._toc_rows: list[_TocRow] = []
-        self.setFixedWidth(800)
-        self.setStyleSheet(f"background: {WHITE}; border-right: 1px solid {BORDER};")
+        self.setStyleSheet(f"background: {WHITE};")
         self._setup_ui()
 
     # ── Public API ─────────────────────────────────────────────────────────────
@@ -123,12 +122,6 @@ class StructurePanel(QWidget):
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(24, 24, 24, 16)
         layout.setSpacing(8)
-
-        layout.addWidget(_lbl("📄", "font-size:16px; background:transparent; border:none;"))
-        layout.addWidget(_lbl(
-            "文書構造",
-            f"font-size:16px; font-weight:700; color:{TEXT_PRI}; background:transparent; border:none;",
-        ))
 
         self._status_badge = QLabel("OCR完了")
         self._status_badge.setStyleSheet(f"""
