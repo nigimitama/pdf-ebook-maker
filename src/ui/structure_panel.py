@@ -291,7 +291,7 @@ class StructurePanel(QWidget):
     def _add_toc_entry(self) -> None:
         if self._structure is None:
             return
-        entry = TocEntry(title="新しいエントリ", page_index=0, level=1)
+        entry = TocEntry(title="", page_index=0, level=1)
         self._structure.toc_entries.append(entry)
         self._insert_toc_row(entry)
 
