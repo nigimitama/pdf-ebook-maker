@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -46,6 +47,7 @@ def build_pdf(
     gamma: float = 1.6,
     resize_width: int | None = None,
     resize_height: int | None = None,
+    jpeg_quality: int = 85,
 ) -> None:
     """Build a PDF from image_paths, embedding an invisible OCR text layer when provided.
 
@@ -60,7 +62,9 @@ def build_pdf(
     gamma:           Gamma correction value (used when contrast_adjust=True).
     resize_width:    Target width in px; height scales proportionally (None = disabled).
     resize_height:   Target height in px; width scales proportionally (None = disabled).
+    jpeg_quality:    JPEG compression quality for embedded images (1–95, default 85).
     """
+    from reportlab.lib.utils import ImageReader  # noqa: PLC0415
     from reportlab.pdfgen import canvas as rl_canvas  # noqa: PLC0415
 
     _ocr = ocr_results or {}
@@ -81,7 +85,11 @@ def build_pdf(
         scale_x = page_w / img_w
         scale_y = page_h / img_h
 
-        c.drawInlineImage(pil_img, 0, 0, width=page_w, height=page_h)
+        buf = io.BytesIO()
+        pil_img.save(buf, format="JPEG", quality=jpeg_quality)
+        buf.seek(0)
+        c.drawImage(ImageReader(buf), 0, 0, width=page_w, height=page_h)
+
         _embed_ocr_layer(c, _ocr.get(path, []), scale_x, scale_y, page_h)
         _embed_toc_bookmarks(c, _toc_index.get(page_num, []), page_h)
         c.showPage()

@@ -55,6 +55,7 @@ class PdfWorker(QThread):
                 gamma=self._opts.gamma,
                 resize_width=self._opts.resize_width,
                 resize_height=self._opts.resize_height,
+                jpeg_quality=self._opts.jpeg_quality,
             )
             self.progress.emit(100, "完了！", "")
             self.finished.emit()

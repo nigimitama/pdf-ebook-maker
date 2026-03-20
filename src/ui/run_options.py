@@ -17,3 +17,4 @@ class RunOptions:
     gamma: float = 1.6
     resize_width: int | None = None   # None = disabled
     resize_height: int | None = None  # None = disabled
+    jpeg_quality: int = 85            # 1–95; controls JPEG compression in the output PDF

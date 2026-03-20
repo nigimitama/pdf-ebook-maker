@@ -113,6 +113,7 @@ class WizardPanel(QWidget):
             gamma=self._spin_gamma.value(),
             resize_width=self._spin_resize_w.value() if self._cb_resize_w.isChecked() else None,
             resize_height=self._spin_resize_h.value() if self._cb_resize_h.isChecked() else None,
+            jpeg_quality=self._spin_jpeg_quality.value(),
         )
 
     @property
@@ -563,6 +564,29 @@ class WizardPanel(QWidget):
         self._cb_resize_w, self._spin_resize_w = self._make_resize_row("横幅を揃える", 1080, v)
         self._cb_resize_w.setChecked(True)
         self._cb_resize_h, self._spin_resize_h = self._make_resize_row("縦幅を揃える", 1920, v)
+
+        quality_row = QWidget()
+        quality_row.setStyleSheet(_TRANSPARENT)
+        row = QHBoxLayout(quality_row)
+        row.setContentsMargins(0, 4, 0, 0)
+        row.setSpacing(8)
+        row.addWidget(_lbl(
+            "JPEG品質",
+            f"font-size:12px;color:{TEXT_SEC};background:transparent;border:none;",
+        ))
+        self._spin_jpeg_quality = QSpinBox()
+        self._spin_jpeg_quality.setRange(1, 95)
+        self._spin_jpeg_quality.setValue(85)
+        self._spin_jpeg_quality.setFixedWidth(64)
+        self._spin_jpeg_quality.setStyleSheet(_SPINBOX_STYLE)
+        self._spin_jpeg_quality.setToolTip("出力PDFに埋め込む画像のJPEG圧縮品質（1〜95、高いほど高品質・大容量）")
+        row.addWidget(self._spin_jpeg_quality)
+        row.addWidget(_lbl(
+            "/ 95",
+            f"font-size:12px;color:{TEXT_SEC};background:transparent;border:none;",
+        ))
+        row.addStretch()
+        v.addWidget(quality_row)
         return container
 
     def _make_resize_row(
@@ -689,6 +713,7 @@ class WizardPanel(QWidget):
             gamma=self._spin_gamma.value(),
             resize_width=self._spin_resize_w.value() if self._cb_resize_w.isChecked() else None,
             resize_height=self._spin_resize_h.value() if self._cb_resize_h.isChecked() else None,
+            jpeg_quality=self._spin_jpeg_quality.value(),
         )
         self.ocr_requested.emit(opts)
 
