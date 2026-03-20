@@ -60,7 +60,7 @@ _BTN_ADDED_STYLE = f"""
 """
 
 
-class _CandidateLine(QWidget):
+class _TocCandidateLine(QWidget):
     """A single OCR text line with an '目次に追加' button."""
 
     # Emits (parsed: TocEntry | None, raw_line: str) — parent applies page offset
@@ -126,7 +126,7 @@ class TocCandidatesSection(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        self._candidate_lines: list[_CandidateLine] = []
+        self._candidate_lines: list[_TocCandidateLine] = []
         self._build()
 
     @property
@@ -158,7 +158,7 @@ class TocCandidatesSection(QWidget):
                 if not line:
                     continue
                 parsed = parse_toc_line(line, page_count)
-                cl = _CandidateLine(line, parsed)
+                cl = _TocCandidateLine(line, parsed)
                 cl.add_requested.connect(self._on_add_requested)
                 if parsed:
                     already_added = any(

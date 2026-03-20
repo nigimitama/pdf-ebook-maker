@@ -92,8 +92,3 @@ class OutputCard(QWidget):
         row.addWidget(self._output_name, stretch=1)
         row.addWidget(ext_badge)
         layout.addLayout(row)
-
-    # output_dir kept as empty string for backward compatibility
-    @property
-    def output_dir(self) -> str:
-        return ""

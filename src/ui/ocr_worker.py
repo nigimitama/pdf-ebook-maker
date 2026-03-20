@@ -52,9 +52,7 @@ class OcrWorker(QThread):
                 self.error.emit("処理できる画像ファイルが見つかりませんでした。")
                 return
 
-            ocr_results = (
-                self._run_ocr(image_paths) if self._opts.run_ocr else {}
-            )
+            ocr_results = self._run_ocr(image_paths)
 
             self.ocr_done.emit(image_paths, ocr_results)
             self.finished.emit()

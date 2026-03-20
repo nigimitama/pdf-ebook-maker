@@ -12,7 +12,6 @@ class RunOptions:
     output_dir: str
     output_name: str
     sort_by_name: bool
-    run_ocr: bool
     contrast_adjust: bool = False
     brightness: int = 20
     gamma: float = 1.6

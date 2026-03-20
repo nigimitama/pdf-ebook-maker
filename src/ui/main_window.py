@@ -107,13 +107,9 @@ class MainWindow(QMainWindow):
 
     def _on_pdf_requested(self) -> None:
         opts = self._wizard.current_options
-        if not opts.output_dir:
-            self._wizard.set_progress(0, "保存先を指定してください", "")
-            return
         self._current_opts = opts
         structure = self._wizard.current_structure
         self._wizard.set_running(True)
-        self._wizard.set_progress(0, "PDF生成中...", "")
         self._start_pdf_worker(
             self._current_image_paths,
             self._current_ocr_results,
@@ -129,7 +125,6 @@ class MainWindow(QMainWindow):
         opts: RunOptions,
     ) -> None:
         self._pdf_worker = PdfWorker(image_paths, ocr_results, structure, opts)
-        self._pdf_worker.progress.connect(self._wizard.set_progress)
         self._pdf_worker.finished.connect(self._on_pdf_finished)
         self._pdf_worker.error.connect(self._on_worker_error)
         self._pdf_worker.start()

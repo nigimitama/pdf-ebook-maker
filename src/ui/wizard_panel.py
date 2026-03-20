@@ -108,7 +108,6 @@ class WizardPanel(QWidget):
             output_dir=self._output_dir_edit.text().strip(),
             output_name=self._output_card.output_name,
             sort_by_name=True,
-            run_ocr=True,
             contrast_adjust=self._cb_contrast.isChecked(),
             brightness=self._spin_brightness.value(),
             gamma=self._spin_gamma.value(),
@@ -138,9 +137,6 @@ class WizardPanel(QWidget):
 
     def set_ocr_progress(self, value: int, message: str, note: str = "") -> None:
         self._ocr_progress_card.set_progress(value, message, note)
-
-    def set_progress(self, value: int, message: str, note: str = "") -> None:
-        pass  # PDF progress display removed; reserved for future use
 
     def on_pdf_done(self) -> None:
         self._pdf_btn.setEnabled(True)
@@ -482,8 +478,8 @@ class WizardPanel(QWidget):
     # ── Cover thumbnail (Step 4) ───────────────────────────────────────────────
 
     def _load_cover_thumbnail(self) -> None:
-        from .file_item import _ThumbnailWorker  # noqa: PLC0415
-        worker = _ThumbnailWorker(self._cover_image_path)
+        from .thumbnail_worker import ThumbnailWorker  # noqa: PLC0415
+        worker = ThumbnailWorker(self._cover_image_path)
         worker.signals.ready.connect(self._on_cover_thumb_ready)
         QThreadPool.globalInstance().start(worker)
 
@@ -688,7 +684,6 @@ class WizardPanel(QWidget):
             output_dir="",
             output_name="output_ebook",
             sort_by_name=True,
-            run_ocr=True,
             contrast_adjust=self._cb_contrast.isChecked(),
             brightness=self._spin_brightness.value(),
             gamma=self._spin_gamma.value(),

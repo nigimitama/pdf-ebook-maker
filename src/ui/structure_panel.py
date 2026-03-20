@@ -1,7 +1,6 @@
 """StructurePanel — document structure editor shown between OCR and PDF generation.
 
-Responsibility: display page categories and TOC entries; let the user edit them;
-emit export_requested when ready to generate the final PDF.
+Responsibility: display page categories and TOC entries; let the user edit them.
 """
 
 from __future__ import annotations
@@ -72,16 +71,11 @@ def _lbl(text: str, style: str) -> QLabel:
 
 
 class StructurePanel(QWidget):
-    """Center panel: page-category list + TOC editor + export button.
-
-    Signals:
-        export_requested(DocumentStructure): emitted when the user clicks Export.
+    """Center panel: page-category list + TOC editor.
 
     Public methods:
         load(DocumentStructure): populate the panel with detected structure data.
     """
-
-    export_requested = Signal(object)  # DocumentStructure
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -324,7 +318,7 @@ _THUMB_SIZE = 56
 class _PageRow(QWidget):
     """One row in the page list: thumbnail (async), filename, category selector.
 
-    Clicking the thumbnail opens a full-screen preview via _PreviewDialog.
+    Clicking the thumbnail opens a full-screen preview via PagePreviewDialog.
     """
 
     category_changed = Signal(int, str)   # (page_index, PageCategory)
@@ -394,8 +388,8 @@ class _PageRow(QWidget):
         layout.addWidget(del_btn)
 
     def _start_thumbnail_load(self) -> None:
-        from .file_item import _ThumbnailWorker  # noqa: PLC0415
-        worker = _ThumbnailWorker(self._path)
+        from .thumbnail_worker import ThumbnailWorker  # noqa: PLC0415
+        worker = ThumbnailWorker(self._path)
         worker.signals.ready.connect(self._on_thumbnail_ready)
         QThreadPool.globalInstance().start(worker)
 
