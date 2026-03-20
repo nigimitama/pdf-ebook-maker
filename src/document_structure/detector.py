@@ -81,14 +81,15 @@ def _extract_toc_entries(
             line = line.strip()
             if not line:
                 continue
-            entry = _parse_toc_line(line, page_count)
+            entry = parse_toc_line(line, page_count)
             if entry is not None:
                 entries.append(entry)
 
     return entries
 
 
-def _parse_toc_line(line: str, page_count: int) -> TocEntry | None:
+def parse_toc_line(line: str, page_count: int) -> TocEntry | None:
+    """Parse one line of text into a TocEntry, or None if it doesn't look like a TOC entry."""
     m = _CHAPTER_PATTERN.search(line)
     if m:
         title = f"第{m.group(1)}章 {m.group(2).strip()}"

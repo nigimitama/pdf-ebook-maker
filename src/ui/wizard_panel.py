@@ -5,8 +5,8 @@ Steps
 1. ファイルの指定             — drop files / browse
 2. OCR実行  — contrast/resize options, OCR run button
 3. 目次の指定                 — page-category list + TOC editor review
-4. 出力ファイル名・保存先      — output directory and filename
-5. PDF出力                    — generate button + progress
+4. 出力ファイル名              — cover thumbnail, suggested title, output filename
+5. PDF出力                    — save directory, generate button + progress
 
 Signals
 -------
@@ -19,13 +19,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, QThreadPool, Signal
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -68,6 +70,8 @@ _SPINBOX_STYLE = f"""
 
 _TRANSPARENT = "background:transparent; border:none; border-radius:0;"
 
+_COVER_THUMB_SIZE = 96
+
 
 def _lbl(text: str, style: str) -> QLabel:
     lbl = QLabel(text)
@@ -87,6 +91,8 @@ class WizardPanel(QWidget):
         super().__init__(parent)
         self._files: list[str] = []
         self._expander: _FileExpander | None = None
+        self._cover_image_path: str = ""
+        self._cover_ocr_lines: list = []
         self.setStyleSheet(f"background:{BG_GRAY};")
         self._setup_ui()
 
@@ -99,7 +105,7 @@ class WizardPanel(QWidget):
     @property
     def current_options(self) -> RunOptions:
         return RunOptions(
-            output_dir=self._output_card.output_dir,
+            output_dir=self._output_dir_edit.text().strip(),
             output_name=self._output_card.output_name,
             sort_by_name=True,
             run_ocr=True,
@@ -114,11 +120,17 @@ class WizardPanel(QWidget):
     def current_structure(self) -> DocumentStructure:
         return self._structure_panel.current_structure
 
-    def on_ocr_done(self, structure: DocumentStructure) -> None:
+    def on_ocr_done(self, structure: DocumentStructure, ocr_results: dict[str, list] | None = None) -> None:
         """Call when OCR worker finishes successfully."""
-        self._structure_panel.load(structure)
+        self._structure_panel.load(structure, ocr_results)
         if structure.suggested_title:
             self._output_card.set_output_name(structure.suggested_title)
+            self._suggested_title_lbl.setText(f"推定タイトル: {structure.suggested_title}")
+        if structure.pages:
+            self._cover_image_path = structure.pages[0].path
+            self._cover_ocr_lines = (ocr_results or {}).get(self._cover_image_path, [])
+            self._cover_row.setVisible(True)
+            self._load_cover_thumbnail()
         n = len(structure.pages)
         self._step2.set_completed(f"OCR完了 ({n} ページ)")
         self._step3.set_active()
@@ -163,7 +175,7 @@ class WizardPanel(QWidget):
         self._step1 = StepCard(1, "ファイルの指定", self._make_step1_content(), collapsible=False)
         self._step2 = StepCard(2, "OCR実行", self._make_step2_content())
         self._step3 = StepCard(3, "目次の指定", self._make_step3_content())
-        self._step4 = StepCard(4, "出力ファイル名・保存先", self._make_step4_content())
+        self._step4 = StepCard(4, "出力ファイル名", self._make_step4_content())
         self._step5 = StepCard(5, "PDF出力", self._make_step5_content())
 
         inner.addWidget(self._step1)
@@ -310,7 +322,7 @@ class WizardPanel(QWidget):
 
         return w
 
-    # ── Step 4: Output settings ────────────────────────────────────────────────
+    # ── Step 4: Output filename ────────────────────────────────────────────────
 
     def _make_step4_content(self) -> QWidget:
         w = QWidget()
@@ -318,6 +330,38 @@ class WizardPanel(QWidget):
         layout = QVBoxLayout(w)
         layout.setContentsMargins(16, 12, 16, 16)
         layout.setSpacing(12)
+
+        # Cover thumbnail + suggested title row (hidden until OCR completes)
+        self._cover_row = QWidget()
+        self._cover_row.setStyleSheet(_TRANSPARENT)
+        cover_layout = QHBoxLayout(self._cover_row)
+        cover_layout.setContentsMargins(0, 0, 0, 0)
+        cover_layout.setSpacing(16)
+
+        self._cover_thumb = QLabel("🖼")
+        self._cover_thumb.setFixedSize(_COVER_THUMB_SIZE, _COVER_THUMB_SIZE)
+        self._cover_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._cover_thumb.setStyleSheet(
+            f"background:{BG_GRAY}; border-radius:10px; font-size:28px;"
+        )
+        cover_layout.addWidget(self._cover_thumb)
+
+        title_col = QWidget()
+        title_col.setStyleSheet(_TRANSPARENT)
+        title_layout = QVBoxLayout(title_col)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(4)
+        title_layout.addStretch()
+        self._suggested_title_lbl = _lbl(
+            "",
+            f"font-size:11px; color:{TEXT_MUTED}; background:transparent; border:none;",
+        )
+        title_layout.addWidget(self._suggested_title_lbl)
+        title_layout.addStretch()
+        cover_layout.addWidget(title_col, stretch=1)
+
+        self._cover_row.setVisible(False)
+        layout.addWidget(self._cover_row)
 
         self._output_card = OutputCard()
         layout.addWidget(self._output_card)
@@ -371,6 +415,47 @@ class WizardPanel(QWidget):
         back5_row.addStretch()
         layout.addLayout(back5_row)
 
+        layout.addWidget(_lbl(
+            "保存先フォルダ",
+            f"font-size:13px; font-weight:600; color:{TEXT_PRI};"
+            " background:transparent; border:none;",
+        ))
+        dir_row = QHBoxLayout()
+        dir_row.setSpacing(8)
+        self._output_dir_edit = QLineEdit()
+        self._output_dir_edit.setPlaceholderText("/path/to/output")
+        self._output_dir_edit.setFixedHeight(40)
+        self._output_dir_edit.setStyleSheet(f"""
+            QLineEdit {{
+                background:{BG_GRAY}; border:1px solid {BORDER};
+                border-radius:8px; padding:0 12px;
+                font-size:13px; color:{TEXT_PRI};
+            }}
+            QLineEdit:focus {{ border-color:#6366F1; }}
+        """)
+        browse_btn = QPushButton("📁  参照")
+        browse_btn.setFixedHeight(40)
+        browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        browse_btn.setStyleSheet("""
+            QPushButton {
+                background: #F0F5FF; color: #6366F1;
+                border: none; border-radius: 8px;
+                padding: 0 14px; font-size: 13px; font-weight: 600;
+            }
+            QPushButton:hover { background: #E0E7FF; }
+        """)
+        browse_btn.clicked.connect(self._browse_output_dir)
+        dir_row.addWidget(self._output_dir_edit, stretch=1)
+        dir_row.addWidget(browse_btn)
+        layout.addLayout(dir_row)
+
+        self._step5_error = QLabel()
+        self._step5_error.setStyleSheet(
+            "font-size:12px;color:#EF4444;background:transparent;border:none;"
+        )
+        self._step5_error.setVisible(False)
+        layout.addWidget(self._step5_error)
+
         self._pdf_btn = QPushButton("▶  PDFを生成する")
         self._pdf_btn.setFixedHeight(56)
         self._pdf_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -388,6 +473,40 @@ class WizardPanel(QWidget):
         layout.addWidget(self._pdf_btn)
 
         return w
+
+    def _browse_output_dir(self) -> None:
+        path = QFileDialog.getExistingDirectory(self, "保存先フォルダを選択")
+        if path:
+            self._output_dir_edit.setText(path)
+
+    # ── Cover thumbnail (Step 4) ───────────────────────────────────────────────
+
+    def _load_cover_thumbnail(self) -> None:
+        from .file_item import _ThumbnailWorker  # noqa: PLC0415
+        worker = _ThumbnailWorker(self._cover_image_path)
+        worker.signals.ready.connect(self._on_cover_thumb_ready)
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_cover_thumb_ready(self, px: QPixmap) -> None:
+        s = _COVER_THUMB_SIZE
+        scaled = px.scaled(
+            s, s,
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        if scaled.width() > s or scaled.height() > s:
+            x = (scaled.width() - s) // 2
+            y = (scaled.height() - s) // 2
+            scaled = scaled.copy(x, y, s, s)
+        self._cover_thumb.setPixmap(scaled)
+        self._cover_thumb.setText("")
+        self._cover_thumb.setStyleSheet("background:transparent; border-radius:10px;")
+        self._cover_thumb.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._cover_thumb.mousePressEvent = lambda _: self._open_cover_preview()  # type: ignore[method-assign]
+
+    def _open_cover_preview(self) -> None:
+        from .page_preview_dialog import PagePreviewDialog  # noqa: PLC0415
+        PagePreviewDialog(self._cover_image_path, 0, self._cover_ocr_lines, self).exec()
 
     # ── Options sub-sections ───────────────────────────────────────────────────
 
@@ -587,18 +706,12 @@ class WizardPanel(QWidget):
         self._step2.set_active()
 
     def _on_step4_next(self) -> None:
-        missing = []
-        if not self._output_card.output_dir:
-            missing.append("保存先フォルダ")
         if not self._output_card.output_name:
-            missing.append("出力ファイル名")
-        if missing:
-            self._step4_error.setText(f"⚠  {' と '.join(missing)}を入力してください")
+            self._step4_error.setText("⚠  出力ファイル名を入力してください")
             self._step4_error.setVisible(True)
             return
         self._step4_error.setVisible(False)
-        name = self._output_card.output_name
-        self._step4.set_completed(name)
+        self._step4.set_completed(self._output_card.output_name)
         self._step5.set_active()
 
     def _on_step4_back(self) -> None:
@@ -610,9 +723,11 @@ class WizardPanel(QWidget):
         self._step4.set_active()
 
     def _on_pdf_clicked(self) -> None:
-        if not self._output_card.output_dir:
-            self.set_progress(0, "保存先を指定してください", "")
+        if not self._output_dir_edit.text().strip():
+            self._step5_error.setText("⚠  保存先フォルダを指定してください")
+            self._step5_error.setVisible(True)
             return
+        self._step5_error.setVisible(False)
         self._pdf_btn.setEnabled(False)
         self.pdf_requested.emit()
 

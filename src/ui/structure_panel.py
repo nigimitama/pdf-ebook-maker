@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -30,7 +31,8 @@ from document_structure import (
     category_label,
 )
 
-from .constants import BG_GRAY, BORDER, BORDER_LIGHT, CORAL, GREEN, INDIGO, TEXT_MUTED, TEXT_PRI, TEXT_SEC, WHITE
+from .constants import BG_GRAY, BORDER, BORDER_LIGHT, CORAL, INDIGO, TEXT_MUTED, TEXT_PRI, TEXT_SEC, WHITE
+from .toc_candidates_section import TocCandidatesSection
 
 _CATEGORY_ORDER: list[PageCategory] = ["cover", "toc", "body", "uncategorized"]
 
@@ -84,7 +86,9 @@ class StructurePanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._structure: DocumentStructure | None = None
+        self._ocr_results: dict[str, list] = {}
         self._toc_rows: list[_TocRow] = []
+        self._candidates_section = TocCandidatesSection()
         self.setStyleSheet(f"background: {WHITE};")
         self._setup_ui()
 
@@ -97,49 +101,29 @@ class StructurePanel(QWidget):
             self._sync_toc_from_rows()
         return self._structure or DocumentStructure(pages=[], toc_entries=[])
 
-    def load(self, structure: DocumentStructure) -> None:
+    def load(
+        self,
+        structure: DocumentStructure,
+        ocr_results: dict[str, list] | None = None,
+    ) -> None:
         """Populate the panel with auto-detected document structure."""
         self._structure = structure
+        self._ocr_results = ocr_results or {}
         self._populate_page_list()
         self._populate_toc_list()
-        self._status_badge.setVisible(True)
-        if structure.suggested_title:
-            self._title_hint.setText(f"推定タイトル: {structure.suggested_title}")
-            self._title_hint.setVisible(True)
-
+        if ocr_results is not None:
+            self._candidates_section.load(
+                structure.pages,
+                ocr_results,
+                structure.toc_entries,
+            )
     # ── UI construction ────────────────────────────────────────────────────────
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-        root.addWidget(self._make_header())
         root.addWidget(self._make_body(), stretch=1)
-
-    def _make_header(self) -> QWidget:
-        widget = QWidget()
-        widget.setStyleSheet(f"background: {WHITE}; border-bottom: 1px solid {BORDER};")
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(24, 24, 24, 16)
-        layout.setSpacing(8)
-
-        self._status_badge = QLabel("OCR完了")
-        self._status_badge.setStyleSheet(f"""
-            background: #F0FDF4; color: {GREEN};
-            padding: 4px 10px; border-radius: 12px;
-            font-size: 12px; font-weight: 600; border: none;
-        """)
-        self._status_badge.setVisible(False)
-        layout.addWidget(self._status_badge)
-        layout.addStretch()
-
-        self._title_hint = _lbl(
-            "",
-            f"font-size:11px; color:{TEXT_MUTED}; background:transparent; border:none;",
-        )
-        self._title_hint.setVisible(False)
-        layout.addWidget(self._title_hint)
-        return widget
 
     def _make_body(self) -> QWidget:
         body = QWidget()
@@ -196,7 +180,8 @@ class StructurePanel(QWidget):
             return
         all_paths = [p.path for p in self._structure.pages]
         for page in self._structure.pages:
-            row = _PageRow(page.path, page.index, page.category, all_paths)
+            ocr_lines = self._ocr_results.get(page.path, [])
+            row = _PageRow(page.path, page.index, page.category, all_paths, ocr_lines)
             row.category_changed.connect(self._on_category_changed)
             row.remove_requested.connect(self._on_page_remove_requested)
             self._page_list_layout.insertWidget(
@@ -224,6 +209,28 @@ class StructurePanel(QWidget):
         col.setStyleSheet(f"background: {BG_GRAY};")
         layout = QVBoxLayout(col)
         layout.setContentsMargins(12, 16, 16, 16)
+        layout.setSpacing(8)
+
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setChildrenCollapsible(False)
+        splitter.setStyleSheet(f"QSplitter::handle {{ background: {BORDER}; height: 2px; }}")
+
+        # Top: candidate lines from TOC pages (instance created in __init__)
+        self._candidates_section.entry_added.connect(self._on_candidate_entry_added)
+        splitter.addWidget(self._candidates_section)
+
+        # Bottom: confirmed TOC entries
+        splitter.addWidget(self._make_confirmed_entries_widget())
+        splitter.setSizes([240, 260])
+
+        layout.addWidget(splitter, stretch=1)
+        return col
+
+    def _make_confirmed_entries_widget(self) -> QWidget:
+        widget = QWidget()
+        widget.setStyleSheet(f"background: {BG_GRAY};")
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 8, 0, 0)
         layout.setSpacing(8)
 
         hdr = QHBoxLayout()
@@ -260,7 +267,13 @@ class StructurePanel(QWidget):
 
         scroll.setWidget(self._toc_list_container)
         layout.addWidget(scroll, stretch=1)
-        return col
+        return widget
+
+    def _on_candidate_entry_added(self, entry: TocEntry) -> None:
+        if self._structure is None:
+            return
+        self._structure.toc_entries.append(entry)
+        self._insert_toc_row(entry)
 
     def _populate_toc_list(self) -> None:
         for row in self._toc_rows:
@@ -289,8 +302,10 @@ class StructurePanel(QWidget):
         self._insert_toc_row(entry)
 
     def _remove_toc_row(self, row: _TocRow) -> None:
-        if self._structure and row.entry in self._structure.toc_entries:
-            self._structure.toc_entries.remove(row.entry)
+        if self._structure:
+            self._structure.toc_entries = [
+                e for e in self._structure.toc_entries if e is not row.entry
+            ]
         if row in self._toc_rows:
             self._toc_rows.remove(row)
         row.deleteLater()
@@ -321,11 +336,13 @@ class _PageRow(QWidget):
         page_index: int,
         category: PageCategory,
         all_paths: list[str],
+        ocr_lines: list | None = None,
     ) -> None:
         super().__init__()
         self._path = path
         self._page_index = page_index
         self._all_paths = all_paths
+        self._ocr_lines = ocr_lines or []
         self._thumb_label: QLabel | None = None
         self._build(path, category)
         self._start_thumbnail_load()
@@ -403,9 +420,8 @@ class _PageRow(QWidget):
         )
 
     def _open_preview(self) -> None:
-        from .file_item import _PreviewDialog  # noqa: PLC0415
-        index = self._all_paths.index(self._path) if self._path in self._all_paths else 0
-        _PreviewDialog(self._all_paths, index, self).exec()
+        from .page_preview_dialog import PagePreviewDialog  # noqa: PLC0415
+        PagePreviewDialog(self._path, self._page_index, self._ocr_lines, self).exec()
 
     def _make_category_combo(self, current: PageCategory) -> QComboBox:
         combo = QComboBox()

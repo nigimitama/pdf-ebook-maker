@@ -99,7 +99,7 @@ class MainWindow(QMainWindow):
         self._current_ocr_results = ocr_results
 
         structure = build_structure(image_paths, ocr_results)
-        self._wizard.on_ocr_done(structure)
+        self._wizard.on_ocr_done(structure, ocr_results)
         self._wizard.set_running(False)
         self._wizard.set_ocr_progress(100, "OCR完了", "")
 
