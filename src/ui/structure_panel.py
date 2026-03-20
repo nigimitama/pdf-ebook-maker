@@ -278,15 +278,18 @@ class StructurePanel(QWidget):
             return
         for entry in self._structure.toc_entries:
             self._insert_toc_row(entry)
+        self._renumber_toc_rows()
 
     def _insert_toc_row(self, entry: TocEntry) -> None:
         page_count = len(self._structure.pages) if self._structure else 1
         row = _TocRow(entry, page_count)
         row.remove_requested.connect(self._remove_toc_row)
+        row.level_changed.connect(self._renumber_toc_rows)
         self._toc_rows.append(row)
         self._toc_list_layout.insertWidget(
             self._toc_list_layout.count() - 1, row
         )
+        self._renumber_toc_rows()
 
     def _add_toc_entry(self) -> None:
         if self._structure is None:
@@ -303,6 +306,15 @@ class StructurePanel(QWidget):
         if row in self._toc_rows:
             self._toc_rows.remove(row)
         row.deleteLater()
+        self._renumber_toc_rows()
+
+    def _renumber_toc_rows(self) -> None:
+        """Update level badge numbers: sequential per level across all rows."""
+        counters: dict[int, int] = {}
+        for row in self._toc_rows:
+            level = row.entry.level
+            counters[level] = counters.get(level, 0) + 1
+            row.set_index(counters[level])
 
     def _sync_toc_from_rows(self) -> None:
         """Write row widget values back into the TocEntry objects."""
@@ -447,6 +459,7 @@ class _TocRow(QWidget):
     """One TOC entry row: level badge, title input, page spinbox, delete button."""
 
     remove_requested = Signal(object)  # _TocRow
+    level_changed = Signal()
 
     def __init__(self, entry: TocEntry, page_count: int) -> None:
         super().__init__()
@@ -459,6 +472,10 @@ class _TocRow(QWidget):
         self.entry.page_index = self._page_spin.value() - 1
         self.entry.level = self._level_spin.value()
 
+    def set_index(self, n: int) -> None:
+        """Update the sequential number shown in the level badge."""
+        self._level_lbl.setText(str(n))
+
     def _build(self) -> None:
         self.setStyleSheet(f"""
             _TocRow {{
@@ -470,15 +487,15 @@ class _TocRow(QWidget):
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(8)
 
-        # Level badge
-        level_lbl = QLabel(str(self.entry.level))
-        level_lbl.setFixedSize(20, 20)
-        level_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        level_lbl.setStyleSheet(f"""
+        # Level badge (number updated externally via set_index)
+        self._level_lbl = QLabel("·")
+        self._level_lbl.setFixedSize(20, 20)
+        self._level_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._level_lbl.setStyleSheet(f"""
             background: {INDIGO}; color: {WHITE};
             border-radius: 4px; font-size: 11px; font-weight: 700;
         """)
-        layout.addWidget(level_lbl)
+        layout.addWidget(self._level_lbl)
 
         # Title input
         self._title_edit = QLineEdit(self.entry.title)
@@ -507,9 +524,7 @@ class _TocRow(QWidget):
         self._level_spin.setFixedWidth(48)
         self._level_spin.setStyleSheet(_SPINBOX_STYLE)
         self._level_spin.setPrefix("L")
-        self._level_spin.valueChanged.connect(
-            lambda v: level_lbl.setText(str(v))
-        )
+        self._level_spin.valueChanged.connect(self._on_level_changed)
         layout.addWidget(self._level_spin)
 
         # Delete button
@@ -525,3 +540,7 @@ class _TocRow(QWidget):
         """)
         del_btn.clicked.connect(lambda: self.remove_requested.emit(self))
         layout.addWidget(del_btn)
+
+    def _on_level_changed(self, v: int) -> None:
+        self.entry.level = v
+        self.level_changed.emit()
