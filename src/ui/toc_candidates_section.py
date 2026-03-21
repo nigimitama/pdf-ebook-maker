@@ -160,6 +160,10 @@ class TocCandidatesSection(QWidget):
             self._show_empty_message()
             return
 
+        # Default "page 1" spinbox to the image right after the last TOC page
+        last_toc_index = max(p.index for p, _ in toc_pages)
+        self._page_offset_spin.setValue(last_toc_index + 2)
+
         all_lines = [
             r.text.strip()
             for _, results in toc_pages
