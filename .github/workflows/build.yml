@@ -21,6 +21,7 @@ jobs:
 
       - name: Build executable
         run: build.bat
+        shell: cmd
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
