@@ -7,11 +7,28 @@ import re
 from .models import DocumentStructure, PageCategory, PageEntry, TocEntry
 
 # Keywords that identify a TOC page
-_TOC_KEYWORDS = re.compile(
-    r"(目次|もくじ|CONTENTS|contents|目　次)",
-    re.IGNORECASE,
-)
+_TOC_KEYWORDS_JP = re.compile(r"目次|もくじ|目　次")
+# "CONTENTS" must occupy its own line — prevents matching URL path segments like /dp/contents/
+_CONTENTS_LINE_RE = re.compile(r"^CONTENTS$", re.IGNORECASE)
 _TOC_CHAPTER_LINE = re.compile(r"第.{0,2}章.{0,27}\d{1,3}\s*$")
+
+
+def _has_toc_keyword(text: str) -> bool:
+    """Return True if any line contains a TOC header keyword.
+
+    Japanese keywords (目次/もくじ/目　次) are matched anywhere in a line.
+    'CONTENTS' is only matched when it is the sole content of a line, to avoid
+    false positives from URLs that contain '/contents/' as a path segment.
+    """
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if _TOC_KEYWORDS_JP.search(stripped):
+            return True
+        if _CONTENTS_LINE_RE.match(stripped):
+            return True
+    return False
 
 
 def _has_chapter_list(text: str) -> bool:
@@ -68,7 +85,7 @@ def _assign_categories(
             category: PageCategory = "cover"
         else:
             text = _join_text(ocr_results.get(path, []))
-            if _TOC_KEYWORDS.search(text) or _has_chapter_list(text):
+            if _has_toc_keyword(text) or _has_chapter_list(text):
                 category = "toc"
             else:
                 category = "body"
