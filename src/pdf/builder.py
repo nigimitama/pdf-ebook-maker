@@ -47,7 +47,7 @@ def build_pdf(
     gamma: float = 1.6,
     resize_width: int | None = None,
     resize_height: int | None = None,
-    jpeg_quality: int = 85,
+    jpeg_quality: int = 75,
 ) -> None:
     """Build a PDF from image_paths, embedding an invisible OCR text layer when provided.
 

@@ -576,7 +576,7 @@ class WizardPanel(QWidget):
         ))
         self._spin_jpeg_quality = QSpinBox()
         self._spin_jpeg_quality.setRange(1, 95)
-        self._spin_jpeg_quality.setValue(85)
+        self._spin_jpeg_quality.setValue(75)
         self._spin_jpeg_quality.setFixedWidth(64)
         self._spin_jpeg_quality.setStyleSheet(_SPINBOX_STYLE)
         self._spin_jpeg_quality.setToolTip("出力PDFに埋め込む画像のJPEG圧縮品質（1〜95、高いほど高品質・大容量）")
