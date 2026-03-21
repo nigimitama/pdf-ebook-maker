@@ -277,7 +277,8 @@ class TocCandidatesSection(QWidget):
         else:
             raw_num = _extract_trailing_page_number(raw_line)
             page_index = (raw_num - 1 + offset) if raw_num is not None else offset
-            entry = TocEntry(raw_line[:80], page_index, 1)
+            title = _TRAILING_NUM_RE.sub("", raw_line).rstrip()
+            entry = TocEntry(title[:80], page_index, 1)
         self.entry_added.emit(entry, candidate_line)
 
     def _clear(self) -> None:
