@@ -8,6 +8,7 @@ trailing page numbers in TOC lines are mapped to the correct image index.
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
@@ -28,6 +29,15 @@ from .constants import BG_GRAY, BORDER_LIGHT, INDIGO, TEXT_MUTED, TEXT_PRI, WHIT
 
 _TRAILING_NUM_RE = re.compile(r"(\d{1,3})\s*$")
 _CHAPTER_HEADING_RE = re.compile(r"第.{0,2}章")
+# Insert a space after 章/節 when immediately followed by a non-space character
+_CHAPTER_SPACE_RE = re.compile(r"(第.{0,2}[章節])(?!\s)")
+
+
+def _format_title(text: str) -> str:
+    """NFKC-normalise and tidy up a TOC title string."""
+    text = unicodedata.normalize("NFKC", text)
+    text = _CHAPTER_SPACE_RE.sub(r"\1 ", text)
+    return text
 
 
 def _lbl(text: str, style: str) -> QLabel:
@@ -320,11 +330,11 @@ class TocCandidatesSection(QWidget):
         offset = self.page_offset
         if parsed:
             page_index = parsed.page_index + offset
-            entry = TocEntry(parsed.title, page_index, parsed.level)
+            entry = TocEntry(_format_title(parsed.title), page_index, parsed.level)
         else:
             raw_num = _extract_trailing_page_number(raw_line)
             page_index = (raw_num - 1 + offset) if raw_num is not None else offset
-            title = _TRAILING_NUM_RE.sub("", raw_line).rstrip()
+            title = _format_title(_TRAILING_NUM_RE.sub("", raw_line).rstrip())
             entry = TocEntry(title[:80], page_index, 1)
         self.entry_added.emit(entry, candidate_line)
 
