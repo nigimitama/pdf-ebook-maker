@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from .models import DocumentStructure, PageCategory, PageEntry, TocEntry
+
+
+def _nfkc(text: str) -> str:
+    return unicodedata.normalize("NFKC", text)
+
 
 # Keywords that identify a TOC page
 _TOC_KEYWORDS_JP = re.compile(r"目次|もくじ|目　次")
@@ -19,9 +25,10 @@ def _has_toc_keyword(text: str) -> bool:
     Japanese keywords (目次/もくじ/目　次) are matched anywhere in a line.
     'CONTENTS' is only matched when it is the sole content of a line, to avoid
     false positives from URLs that contain '/contents/' as a path segment.
+    Text is NFKC-normalised before matching to handle full-width variants.
     """
     for line in text.splitlines():
-        stripped = line.strip()
+        stripped = _nfkc(line.strip())
         if not stripped:
             continue
         if _TOC_KEYWORDS_JP.search(stripped):
@@ -34,7 +41,7 @@ def _has_toc_keyword(text: str) -> bool:
 def _has_chapter_list(text: str) -> bool:
     """Return True if any line contains 第X章, is < 30 chars, and ends with a page number."""
     return any(
-        _TOC_CHAPTER_LINE.search(line)
+        _TOC_CHAPTER_LINE.search(_nfkc(line))
         for line in text.splitlines()
         if line.strip() and len(line.strip()) < 30
     )
@@ -117,6 +124,7 @@ def _extract_toc_entries(
 
 def parse_toc_line(line: str, page_count: int) -> TocEntry | None:
     """Parse one line of text into a TocEntry, or None if it doesn't look like a TOC entry."""
+    line = _nfkc(line)
     m = _CHAPTER_PATTERN.search(line)
     if m:
         title = f"第{m.group(1)}章 {m.group(2).strip()}"
