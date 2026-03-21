@@ -282,7 +282,8 @@ class StructurePanel(QWidget):
 
     def _insert_toc_row(self, entry: TocEntry) -> None:
         page_count = len(self._structure.pages) if self._structure else 1
-        row = _TocRow(entry, page_count)
+        image_paths = [p.path for p in self._structure.pages] if self._structure else []
+        row = _TocRow(entry, page_count, image_paths, self._ocr_results)
         row.remove_requested.connect(self._remove_toc_row)
         row.level_changed.connect(self._renumber_toc_rows)
         self._toc_rows.append(row)
@@ -461,10 +462,18 @@ class _TocRow(QWidget):
     remove_requested = Signal(object)  # _TocRow
     level_changed = Signal()
 
-    def __init__(self, entry: TocEntry, page_count: int) -> None:
+    def __init__(
+        self,
+        entry: TocEntry,
+        page_count: int,
+        image_paths: list[str],
+        ocr_results: dict[str, list],
+    ) -> None:
         super().__init__()
         self.entry = entry
         self._page_count = page_count
+        self._image_paths = image_paths
+        self._ocr_results = ocr_results
         self._build()
 
     def sync_to_entry(self) -> None:
@@ -515,7 +524,20 @@ class _TocRow(QWidget):
         self._page_spin.setFixedWidth(56)
         self._page_spin.setStyleSheet(_SPINBOX_STYLE)
         self._page_spin.setPrefix("p.")
+        self._page_spin.valueChanged.connect(lambda v: self._load_thumb(v - 1))
         layout.addWidget(self._page_spin)
+
+        # Page thumbnail
+        self._thumb_lbl = QLabel()
+        self._thumb_lbl.setFixedSize(32, 32)
+        self._thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._thumb_lbl.setStyleSheet(
+            f"background: {BG_GRAY}; border: 1px solid {BORDER_LIGHT}; border-radius: 4px;"
+        )
+        self._thumb_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._thumb_lbl.mousePressEvent = lambda _: self._on_thumb_clicked()
+        layout.addWidget(self._thumb_lbl)
+        self._load_thumb(self.entry.page_index)
 
         # Level spinbox
         self._level_spin = QSpinBox()
@@ -544,3 +566,24 @@ class _TocRow(QWidget):
     def _on_level_changed(self, v: int) -> None:
         self.entry.level = v
         self.level_changed.emit()
+
+    def _load_thumb(self, page_index: int) -> None:
+        if not self._image_paths or not (0 <= page_index < len(self._image_paths)):
+            self._thumb_lbl.clear()
+            return
+        from .thumbnail_worker import ThumbnailWorker  # noqa: PLC0415
+        worker = ThumbnailWorker(self._image_paths[page_index], size=32, radius=4)
+        worker.signals.ready.connect(self._on_thumb_ready)
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_thumb_ready(self, px: QPixmap) -> None:
+        self._thumb_lbl.setPixmap(px)
+
+    def _on_thumb_clicked(self) -> None:
+        page_index = self._page_spin.value() - 1
+        if not self._image_paths or not (0 <= page_index < len(self._image_paths)):
+            return
+        path = self._image_paths[page_index]
+        ocr_lines = self._ocr_results.get(path, [])
+        from .page_preview_dialog import PagePreviewDialog  # noqa: PLC0415
+        PagePreviewDialog(path, page_index, ocr_lines, self).exec()
