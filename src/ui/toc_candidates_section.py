@@ -26,6 +26,7 @@ from document_structure import PageEntry, TocEntry, parse_toc_line
 from .constants import BG_GRAY, BORDER_LIGHT, INDIGO, TEXT_MUTED, TEXT_PRI, WHITE
 
 _TRAILING_NUM_RE = re.compile(r"(\d{1,3})\s*$")
+_CHAPTER_HEADING_RE = re.compile(r"第.{0,2}章")
 
 
 def _lbl(text: str, style: str) -> QLabel:
@@ -159,6 +160,14 @@ class TocCandidatesSection(QWidget):
             self._show_empty_message()
             return
 
+        all_lines = [
+            r.text.strip()
+            for _, results in toc_pages
+            for r in results
+            if r.text.strip()
+        ]
+        use_chapter = sum(1 for ln in all_lines if _CHAPTER_HEADING_RE.search(ln)) >= 2
+
         for page, results in toc_pages:
             self._list_layout.insertWidget(
                 self._list_layout.count() - 1,
@@ -168,7 +177,10 @@ class TocCandidatesSection(QWidget):
                 line = result.text.strip()
                 if not line:
                     continue
-                parsed = parse_toc_line(line, page_count)
+                if use_chapter:
+                    parsed = parse_toc_line(line, page_count) if _CHAPTER_HEADING_RE.search(line) else None
+                else:
+                    parsed = parse_toc_line(line, page_count)
                 cl = _TocCandidateLine(line, parsed)
                 cl.add_requested.connect(
                     lambda p, raw, w=cl: self._on_add_requested(p, raw, w)

@@ -11,6 +11,16 @@ _TOC_KEYWORDS = re.compile(
     r"(目次|もくじ|CONTENTS|contents|目　次)",
     re.IGNORECASE,
 )
+_TOC_CHAPTER_LINE = re.compile(r"第.{0,2}章.{0,27}\d{1,3}\s*$")
+
+
+def _has_chapter_list(text: str) -> bool:
+    """Return True if any line contains 第X章, is < 30 chars, and ends with a page number."""
+    return any(
+        _TOC_CHAPTER_LINE.search(line)
+        for line in text.splitlines()
+        if line.strip() and len(line.strip()) < 30
+    )
 
 # Patterns for TOC entry lines:  「第X章　タイトル ・・・ 3」
 _CHAPTER_PATTERN = re.compile(
@@ -58,7 +68,7 @@ def _assign_categories(
             category: PageCategory = "cover"
         else:
             text = _join_text(ocr_results.get(path, []))
-            if _TOC_KEYWORDS.search(text):
+            if _TOC_KEYWORDS.search(text) or _has_chapter_list(text):
                 category = "toc"
             else:
                 category = "body"
