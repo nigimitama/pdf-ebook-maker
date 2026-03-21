@@ -39,7 +39,7 @@ def _extract_trailing_page_number(line: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def _truncate(text: str, max_chars: int = 30) -> str:
+def _truncate(text: str, max_chars: int = 40) -> str:
     return text if len(text) <= max_chars else text[:max_chars] + "..."
 
 
