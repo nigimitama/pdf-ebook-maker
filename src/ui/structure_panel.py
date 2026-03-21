@@ -128,7 +128,7 @@ class StructurePanel(QWidget):
 
     def _make_page_column(self) -> QWidget:
         col = QWidget()
-        col.setFixedWidth(220)
+        col.setFixedWidth(320)
         col.setStyleSheet(f"background: {WHITE}; border-right: 1px solid {BORDER};")
         layout = QVBoxLayout(col)
         layout.setContentsMargins(16, 16, 12, 16)

@@ -29,6 +29,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("PDF Ebook Maker")
         self.setMinimumSize(960, 780)
+        self.resize(1060, 780)
         self._worker: OcrWorker | None = None
         self._pdf_worker: PdfWorker | None = None
         self._preloader: ModelPreloader | None = None
