@@ -12,9 +12,9 @@ class RunOptions:
     output_dir: str
     output_name: str
     sort_by_name: bool
-    run_ocr: bool
     contrast_adjust: bool = False
     brightness: int = 20
     gamma: float = 1.6
     resize_width: int | None = None   # None = disabled
     resize_height: int | None = None  # None = disabled
+    jpeg_quality: int = 75            # 1–95; controls JPEG compression in the output PDF
