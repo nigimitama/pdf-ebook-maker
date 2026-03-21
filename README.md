@@ -1,15 +1,21 @@
 # PDF eBook Maker
 
-スキャンした文書の画像をもとに、電子書籍として扱える（テキストが検索やコピーができる）PDFファイルを生成するツールです。
+スキャンした文書の画像をもとに、電子書籍として扱える（テキストが検索やコピー可能で、目次がついた）PDFファイルを生成するツールです。
+
 
 ![](https://private-user-images.githubusercontent.com/33838461/567195730-5fb42042-e13c-48a9-abc4-7290b48625a1.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzQwNjU2ODksIm5iZiI6MTc3NDA2NTM4OSwicGF0aCI6Ii8zMzgzODQ2MS81NjcxOTU3MzAtNWZiNDIwNDItZTEzYy00OGE5LWFiYzQtNzI5MGI0ODYyNWExLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjAzMjElMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwMzIxVDAzNTYyOVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTgxNWQwNDJhNjc5NGVlZjQ3ZDM0OThlMjRlYzVmNDJlMTBiZjhmZTIwMDJhZmE5YzkxMTQxODg3NWRlODQ1ZGUmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.T9WPZTzD-iMzGplDk1qwDCYKAQ29k6Q5WOpJ0CiwwIA
 )
 
----
+処理はすべてアプリを動作させている端末上で行われ、サーバー等には送信されません。
 
-本アプリは、OCRに国立国会図書館が提供する [NDLOCR-Lite](https://github.com/ndl-lab/ndlocr-lite)）を利用しています。NDLOCR-Lite は Creative Commons Attribution 4.0 (CC BY 4.0) のもとで提供されています。
+OCR処理はGPUを必要としない軽量なアルゴリズムを使用しています。
 
-© 国立国会図書館
+
+## ライセンス
+
+本アプリ自体はMITライセンスです。
+
+なお、本アプリは、OCRに国立国会図書館が提供する [NDLOCR-Lite](https://github.com/ndl-lab/ndlocr-lite) を利用しています。NDLOCR-Lite は Creative Commons Attribution 4.0 (CC BY 4.0) のもとで提供されています（詳細は [NOTICE](./NOTICE) をご覧ください）。
 
 本アプリにおける改変内容：
 - アプリケーションへの統合
