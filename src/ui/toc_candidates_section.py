@@ -39,6 +39,10 @@ def _extract_trailing_page_number(line: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def _truncate(text: str, max_chars: int = 30) -> str:
+    return text if len(text) <= max_chars else text[:max_chars] + "..."
+
+
 _BTN_ADD_STYLE = f"""
     QPushButton {{
         background: #EEF2FF; color: {INDIGO};
@@ -92,11 +96,11 @@ class _TocCandidateLine(QWidget):
         layout.setSpacing(6)
 
         if self._parsed:
-            display = self._parsed.title
+            display = _truncate(self._parsed.title)
             hint = f"p.{self._parsed.page_index + 1}  L{self._parsed.level}"
             hint_color = INDIGO
         else:
-            display = self._line
+            display = _truncate(self._line)
             hint = ""
             hint_color = TEXT_MUTED
 
