@@ -8,12 +8,14 @@ trailing page numbers in TOC lines are mapped to the correct image index.
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -27,6 +29,15 @@ from .constants import BG_GRAY, BORDER_LIGHT, INDIGO, TEXT_MUTED, TEXT_PRI, WHIT
 
 _TRAILING_NUM_RE = re.compile(r"(\d{1,3})\s*$")
 _CHAPTER_HEADING_RE = re.compile(r"第.{0,2}章")
+# Insert a space after 章/節 when immediately followed by a non-space character
+_CHAPTER_SPACE_RE = re.compile(r"(第.{0,2}[章節])(?!\s)")
+
+
+def _format_title(text: str) -> str:
+    """NFKC-normalise and tidy up a TOC title string."""
+    text = unicodedata.normalize("NFKC", text)
+    text = _CHAPTER_SPACE_RE.sub(r"\1 ", text)
+    return text
 
 
 def _lbl(text: str, style: str) -> QLabel:
@@ -140,6 +151,8 @@ class TocCandidatesSection(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self._candidate_lines: list[_TocCandidateLine] = []
+        # Map each candidate line to its page separator widget
+        self._line_to_separator: dict[_TocCandidateLine, QWidget] = {}
         self._build()
 
     @property
@@ -173,10 +186,9 @@ class TocCandidatesSection(QWidget):
         use_chapter = sum(1 for ln in all_lines if _CHAPTER_HEADING_RE.search(ln)) >= 2
 
         for page, results in toc_pages:
-            self._list_layout.insertWidget(
-                self._list_layout.count() - 1,
-                self._make_page_separator(page),
-            )
+            separator = self._make_page_separator(page)
+            self._list_layout.insertWidget(self._list_layout.count() - 1, separator)
+            page_lines: list[_TocCandidateLine] = []
             for result in results:
                 line = result.text.strip()
                 if not line:
@@ -191,6 +203,8 @@ class TocCandidatesSection(QWidget):
                 )
                 self._list_layout.insertWidget(self._list_layout.count() - 1, cl)
                 self._candidate_lines.append(cl)
+                self._line_to_separator[cl] = separator
+                page_lines.append(cl)
 
     # ── private ────────────────────────────────────────────────────────────────
 
@@ -201,6 +215,7 @@ class TocCandidatesSection(QWidget):
         layout.setSpacing(4)
 
         layout.addWidget(self._make_header())
+        layout.addWidget(self._make_filter_bar())
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -264,6 +279,48 @@ class TocCandidatesSection(QWidget):
         )
         return w
 
+    def _make_filter_bar(self) -> QWidget:
+        w = QWidget()
+        w.setStyleSheet("background: transparent;")
+        layout = QHBoxLayout(w)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+
+        layout.addWidget(
+            _lbl("🔍", "font-size:12px; background:transparent;")
+        )
+        self._filter_edit = QLineEdit()
+        self._filter_edit.setPlaceholderText("キーワードで絞り込み...")
+        self._filter_edit.setClearButtonEnabled(True)
+        self._filter_edit.setStyleSheet(f"""
+            QLineEdit {{
+                background: {WHITE}; border: 1px solid {BORDER_LIGHT};
+                border-radius: 6px; padding: 3px 8px;
+                font-size: 11px; color: {TEXT_PRI};
+            }}
+        """)
+        self._filter_edit.textChanged.connect(self._apply_filter)
+        layout.addWidget(self._filter_edit, stretch=1)
+        return w
+
+    def _apply_filter(self, keyword: str) -> None:
+        """Show only lines containing keyword; show all when keyword is empty."""
+        keyword = keyword.strip().lower()
+        # Track which separators have at least one visible line
+        separator_has_visible: dict[QWidget, bool] = {}
+        for cl in self._candidate_lines:
+            visible = not keyword or keyword in cl._line.lower()
+            cl.setVisible(visible)
+            sep = self._line_to_separator.get(cl)
+            if sep is not None:
+                if visible:
+                    separator_has_visible[sep] = True
+                elif sep not in separator_has_visible:
+                    separator_has_visible[sep] = False
+        # Show separator only when it has at least one visible line
+        for sep, has_visible in separator_has_visible.items():
+            sep.setVisible(has_visible)
+
     def _on_add_requested(
         self,
         parsed: TocEntry | None,
@@ -273,17 +330,22 @@ class TocCandidatesSection(QWidget):
         offset = self.page_offset
         if parsed:
             page_index = parsed.page_index + offset
-            entry = TocEntry(parsed.title, page_index, parsed.level)
+            entry = TocEntry(_format_title(parsed.title), page_index, parsed.level)
         else:
             raw_num = _extract_trailing_page_number(raw_line)
             page_index = (raw_num - 1 + offset) if raw_num is not None else offset
-            entry = TocEntry(raw_line[:80], page_index, 1)
+            title = _format_title(_TRAILING_NUM_RE.sub("", raw_line).rstrip())
+            entry = TocEntry(title[:80], page_index, 1)
         self.entry_added.emit(entry, candidate_line)
 
     def _clear(self) -> None:
         for cl in self._candidate_lines:
             cl.add_requested.disconnect()
         self._candidate_lines.clear()
+        self._line_to_separator.clear()
+        self._filter_edit.blockSignals(True)
+        self._filter_edit.clear()
+        self._filter_edit.blockSignals(False)
         while self._list_layout.count() > 1:
             item = self._list_layout.takeAt(0)
             if item and item.widget():

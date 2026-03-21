@@ -489,8 +489,12 @@ class _TocRow(QWidget):
 
     def unmark_candidate(self) -> None:
         """Revert the source candidate line's button to '目次に追加' if one exists."""
-        if self._candidate_line is not None:
+        if self._candidate_line is None:
+            return
+        try:
             self._candidate_line.mark_unadded()  # type: ignore[union-attr]
+        except RuntimeError:
+            pass  # Qt widget already deleted (e.g. after TOC page reload)
 
     def _build(self) -> None:
         self.setStyleSheet(f"""
