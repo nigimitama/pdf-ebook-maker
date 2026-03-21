@@ -70,13 +70,20 @@ class _TocCandidateLine(QWidget):
         super().__init__()
         self._line = line
         self._parsed = parsed
+        self._add_btn: QPushButton
         self._build()
 
     def mark_added(self) -> None:
-        """Show the line as already added (pre-populated or just clicked)."""
+        """Show the line as already added."""
         self._add_btn.setText("追加済み")
         self._add_btn.setStyleSheet(_BTN_ADDED_STYLE)
         self._add_btn.setEnabled(False)
+
+    def mark_unadded(self) -> None:
+        """Revert to the initial '目次に追加' state (e.g. after the entry was deleted)."""
+        self._add_btn.setText("目次に追加")
+        self._add_btn.setStyleSheet(_BTN_ADD_STYLE)
+        self._add_btn.setEnabled(True)
 
     def _build(self) -> None:
         self.setStyleSheet("background: transparent;")
@@ -118,11 +125,12 @@ class TocCandidatesSection(QWidget):
     Each line has an '目次に追加' button. A page-offset spinbox converts the book's
     page numbers (as printed) to image indices in the PDF.
 
-    Emits entry_added as the user clicks buttons.
-    Pre-marks lines that matched existing auto-detected entries as '追加済み'.
+    Emits entry_added(TocEntry, _TocCandidateLine) when the user clicks a button.
+    The second argument lets the caller revert the button if the entry is later deleted.
     """
 
-    entry_added = Signal(object)  # TocEntry
+    # (TocEntry, _TocCandidateLine that was clicked)
+    entry_added = Signal(object, object)
 
     def __init__(self) -> None:
         super().__init__()
@@ -138,9 +146,8 @@ class TocCandidatesSection(QWidget):
         self,
         pages: list[PageEntry],
         ocr_results: dict[str, list],
-        existing_entries: list[TocEntry],
     ) -> None:
-        """Populate from the given TOC pages and pre-mark auto-detected entries."""
+        """Populate from the given TOC pages. No entries are pre-marked as added."""
         self._clear()
         page_count = len(pages)
         toc_pages = [(p, ocr_results.get(p.path, [])) for p in pages if p.category == "toc"]
@@ -159,14 +166,9 @@ class TocCandidatesSection(QWidget):
                     continue
                 parsed = parse_toc_line(line, page_count)
                 cl = _TocCandidateLine(line, parsed)
-                cl.add_requested.connect(self._on_add_requested)
-                if parsed:
-                    already_added = any(
-                        e.title == parsed.title and e.page_index == parsed.page_index
-                        for e in existing_entries
-                    )
-                    if already_added:
-                        cl.mark_added()
+                cl.add_requested.connect(
+                    lambda p, raw, w=cl: self._on_add_requested(p, raw, w)
+                )
                 self._list_layout.insertWidget(self._list_layout.count() - 1, cl)
                 self._candidate_lines.append(cl)
 
@@ -242,18 +244,21 @@ class TocCandidatesSection(QWidget):
         )
         return w
 
-    def _on_add_requested(self, parsed: TocEntry | None, raw_line: str) -> None:
-        offset = self.page_offset  # 0-based index of image that is page 1
+    def _on_add_requested(
+        self,
+        parsed: TocEntry | None,
+        raw_line: str,
+        candidate_line: _TocCandidateLine,
+    ) -> None:
+        offset = self.page_offset
         if parsed:
-            # parsed.page_index = book_page_num - 1 (0-based, no cover offset)
-            # adjusted: shift by offset so image 'offset' becomes page 1
             page_index = parsed.page_index + offset
             entry = TocEntry(parsed.title, page_index, parsed.level)
         else:
             raw_num = _extract_trailing_page_number(raw_line)
             page_index = (raw_num - 1 + offset) if raw_num is not None else offset
             entry = TocEntry(raw_line[:80], page_index, 1)
-        self.entry_added.emit(entry)
+        self.entry_added.emit(entry, candidate_line)
 
     def _clear(self) -> None:
         for cl in self._candidate_lines:

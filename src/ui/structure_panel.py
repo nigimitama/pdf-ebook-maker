@@ -103,14 +103,12 @@ class StructurePanel(QWidget):
         """Populate the panel with auto-detected document structure."""
         self._structure = structure
         self._ocr_results = ocr_results or {}
+        # Start with no TOC entries — the user adds them manually via the candidates panel.
+        self._structure.toc_entries = []
         self._populate_page_list()
         self._populate_toc_list()
         if ocr_results is not None:
-            self._candidates_section.load(
-                structure.pages,
-                ocr_results,
-                structure.toc_entries,
-            )
+            self._candidates_section.load(structure.pages, ocr_results)
     # ── UI construction ────────────────────────────────────────────────────────
 
     def _setup_ui(self) -> None:
@@ -263,11 +261,11 @@ class StructurePanel(QWidget):
         layout.addWidget(scroll, stretch=1)
         return widget
 
-    def _on_candidate_entry_added(self, entry: TocEntry) -> None:
+    def _on_candidate_entry_added(self, entry: TocEntry, candidate_line: object) -> None:
         if self._structure is None:
             return
         self._structure.toc_entries.append(entry)
-        self._insert_toc_row(entry)
+        self._insert_toc_row(entry, candidate_line)
 
     def _populate_toc_list(self) -> None:
         for row in self._toc_rows:
@@ -280,10 +278,10 @@ class StructurePanel(QWidget):
             self._insert_toc_row(entry)
         self._renumber_toc_rows()
 
-    def _insert_toc_row(self, entry: TocEntry) -> None:
+    def _insert_toc_row(self, entry: TocEntry, candidate_line: object = None) -> None:
         page_count = len(self._structure.pages) if self._structure else 1
         image_paths = [p.path for p in self._structure.pages] if self._structure else []
-        row = _TocRow(entry, page_count, image_paths, self._ocr_results)
+        row = _TocRow(entry, page_count, image_paths, self._ocr_results, candidate_line)
         row.remove_requested.connect(self._remove_toc_row)
         row.level_changed.connect(self._renumber_toc_rows)
         self._toc_rows.append(row)
@@ -306,6 +304,7 @@ class StructurePanel(QWidget):
             ]
         if row in self._toc_rows:
             self._toc_rows.remove(row)
+        row.unmark_candidate()
         row.deleteLater()
         self._renumber_toc_rows()
 
@@ -468,12 +467,14 @@ class _TocRow(QWidget):
         page_count: int,
         image_paths: list[str],
         ocr_results: dict[str, list],
+        candidate_line: object = None,
     ) -> None:
         super().__init__()
         self.entry = entry
         self._page_count = page_count
         self._image_paths = image_paths
         self._ocr_results = ocr_results
+        self._candidate_line = candidate_line
         self._build()
 
     def sync_to_entry(self) -> None:
@@ -484,6 +485,11 @@ class _TocRow(QWidget):
     def set_index(self, n: int) -> None:
         """Update the sequential number shown in the level badge."""
         self._level_lbl.setText(str(n))
+
+    def unmark_candidate(self) -> None:
+        """Revert the source candidate line's button to '目次に追加' if one exists."""
+        if self._candidate_line is not None:
+            self._candidate_line.mark_unadded()  # type: ignore[union-attr]
 
     def _build(self) -> None:
         self.setStyleSheet(f"""
