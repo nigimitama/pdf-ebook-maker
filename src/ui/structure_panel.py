@@ -10,7 +10,6 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QThreadPool, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -27,28 +26,26 @@ from document_structure import (
     DocumentStructure,
     PageCategory,
     TocEntry,
-    category_label,
 )
 
-from .constants import BG_GRAY, BORDER, BORDER_LIGHT, CORAL, INDIGO, TEXT_MUTED, TEXT_PRI, TEXT_SEC, WHITE
+from .constants import BG_GRAY, BORDER, BORDER_LIGHT, CORAL, INDIGO, TEXT_MUTED, TEXT_PRI, WHITE
 from .toc_candidates_section import TocCandidatesSection
 
-_CATEGORY_ORDER: list[PageCategory] = ["cover", "toc", "body", "uncategorized"]
-
-_CAT_COLORS: dict[PageCategory, tuple[str, str]] = {
-    "cover":        (CORAL,   WHITE),
-    "toc":          ("#3B82F6", WHITE),
-    "body":         (BG_GRAY, TEXT_SEC),
-    "uncategorized":(BG_GRAY, TEXT_MUTED),
-}
-
-_CB_STYLE = """
-    QComboBox {
-        font-size: 11px; font-weight: 600;
-        border-radius: 10px; padding: 2px 8px;
-        border: none;
-    }
-    QComboBox::drop-down { border: none; width: 14px; }
+_TOC_BTN_ON = f"""
+    QPushButton {{
+        background: #3B82F6; color: {WHITE};
+        border: none; border-radius: 8px;
+        font-size: 10px; font-weight: 600; padding: 2px 8px;
+    }}
+    QPushButton:hover {{ background: #2563EB; }}
+"""
+_TOC_BTN_OFF = f"""
+    QPushButton {{
+        background: {BG_GRAY}; color: {TEXT_MUTED};
+        border: 1px solid {BORDER_LIGHT}; border-radius: 8px;
+        font-size: 10px; font-weight: 600; padding: 2px 8px;
+    }}
+    QPushButton:hover {{ background: {BORDER_LIGHT}; }}
 """
 
 _SPINBOX_STYLE = f"""
@@ -184,6 +181,7 @@ class StructurePanel(QWidget):
         if self._structure is None:
             return
         self._structure.pages[index].category = cat
+        self._candidates_section.load(self._structure.pages, self._ocr_results)
 
     def _on_page_remove_requested(self, page_index: int) -> None:
         """Remove page from structure and refresh the page list."""
@@ -350,6 +348,7 @@ class _PageRow(QWidget):
         self._all_paths = all_paths
         self._ocr_lines = ocr_lines or []
         self._thumb_label: QLabel | None = None
+        self._toc_btn: QPushButton | None = None
         self._build(path, category)
         self._start_thumbnail_load()
 
@@ -383,7 +382,7 @@ class _PageRow(QWidget):
         name_lbl = _lbl(Path(path).name, f"font-size:12px; font-weight:600; color:{TEXT_PRI};")
         name_lbl.setStyleSheet(name_lbl.styleSheet() + " background: transparent;")
         info_layout.addWidget(name_lbl)
-        info_layout.addWidget(self._make_category_combo(category))
+        info_layout.addWidget(self._make_toc_toggle(category))
         layout.addWidget(info, stretch=1)
 
         del_btn = QPushButton("🗑")
@@ -429,27 +428,29 @@ class _PageRow(QWidget):
         from .page_preview_dialog import PagePreviewDialog  # noqa: PLC0415
         PagePreviewDialog(self._path, self._page_index, self._ocr_lines, self).exec()
 
-    def _make_category_combo(self, current: PageCategory) -> QComboBox:
-        combo = QComboBox()
-        combo.setCursor(Qt.CursorShape.PointingHandCursor)
-        for cat in _CATEGORY_ORDER:
-            combo.addItem(category_label(cat), cat)
-        combo.setCurrentIndex(_CATEGORY_ORDER.index(current))
+    def _make_toc_toggle(self, category: PageCategory) -> QWidget:
+        if category == "cover":
+            badge = QLabel("表紙")
+            badge.setStyleSheet(
+                f"background: {CORAL}; color: {WHITE}; border-radius: 8px;"
+                " font-size: 10px; font-weight: 600; padding: 2px 8px;"
+            )
+            return badge
 
-        if current == "cover":
-            combo.setEnabled(False)
+        self._toc_btn = QPushButton("目次")
+        self._toc_btn.setCheckable(True)
+        self._toc_btn.setChecked(category == "toc")
+        self._toc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._toc_btn.setStyleSheet(_TOC_BTN_ON if category == "toc" else _TOC_BTN_OFF)
+        self._toc_btn.clicked.connect(self._on_toc_toggle_clicked)
+        return self._toc_btn
 
-        bg, fg = _CAT_COLORS[current]
-        combo.setStyleSheet(_CB_STYLE + f"QComboBox {{ background: {bg}; color: {fg}; }}")
-        combo.currentIndexChanged.connect(
-            lambda _: self._on_combo_changed(combo)
-        )
-        return combo
-
-    def _on_combo_changed(self, combo: QComboBox) -> None:
-        cat: PageCategory = combo.currentData()
-        bg, fg = _CAT_COLORS[cat]
-        combo.setStyleSheet(_CB_STYLE + f"QComboBox {{ background: {bg}; color: {fg}; }}")
+    def _on_toc_toggle_clicked(self) -> None:
+        if self._toc_btn is None:
+            return
+        is_toc = self._toc_btn.isChecked()
+        self._toc_btn.setStyleSheet(_TOC_BTN_ON if is_toc else _TOC_BTN_OFF)
+        cat: PageCategory = "toc" if is_toc else "body"
         self.category_changed.emit(self._page_index, cat)
 
 
