@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThreadPool, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QMimeData, QPoint, Qt, QThreadPool, Signal
+from PySide6.QtGui import QColor, QDrag, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -65,6 +66,142 @@ def _lbl(text: str, style: str) -> QLabel:
     lbl = QLabel(text)
     lbl.setStyleSheet(style)
     return lbl
+
+
+# ── _DragHandle ────────────────────────────────────────────────────────────────
+
+class _DragHandle(QLabel):
+    """Drag handle label that initiates a QDrag to reorder TOC rows."""
+
+    def __init__(self, row: QWidget) -> None:
+        super().__init__("⠿")
+        self._row = row
+        self._start: QPoint | None = None
+        self.setFixedWidth(16)
+        self.setCursor(Qt.CursorShape.SizeVerCursor)
+        self.setToolTip("ドラッグして並び替え")
+        self.setStyleSheet(
+            f"color: {TEXT_MUTED}; background: transparent; font-size: 14px; padding: 0;"
+        )
+
+    def mousePressEvent(self, ev) -> None:  # type: ignore[override]
+        if ev.button() == Qt.MouseButton.LeftButton:
+            self._start = ev.pos()
+
+    def mouseMoveEvent(self, ev) -> None:  # type: ignore[override]
+        if (
+            self._start is not None
+            and ev.buttons() & Qt.MouseButton.LeftButton
+            and (ev.pos() - self._start).manhattanLength()
+            >= QApplication.startDragDistance()
+        ):
+            self._start = None
+            idx = self._current_index()
+            if idx == -1:
+                return
+            mime = QMimeData()
+            mime.setData("application/x-toc-row", str(idx).encode())
+            drag = QDrag(self)
+            drag.setMimeData(mime)
+            drag.setPixmap(self._row.grab())
+            drag.setHotSpot(QPoint(self._row.width() // 2, self._row.height() // 2))
+            drag.exec(Qt.DropAction.MoveAction)
+
+    def mouseReleaseEvent(self, ev) -> None:  # type: ignore[override]
+        self._start = None
+
+    def _current_index(self) -> int:
+        container = self._row.parentWidget()
+        if container is None:
+            return -1
+        layout = container.layout()
+        if layout is None:
+            return -1
+        for i in range(layout.count() - 1):  # -1 to skip trailing stretch
+            item = layout.itemAt(i)
+            if item and item.widget() is self._row:
+                return i
+        return -1
+
+
+# ── _TocListContainer ──────────────────────────────────────────────────────────
+
+class _TocListContainer(QWidget):
+    """Container for TOC rows; accepts drops and shows a drop-position indicator."""
+
+    reorder_requested = Signal(int, int)  # (from_index, to_index)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setAcceptDrops(True)
+        self._drop_y: int | None = None
+
+    def dragEnterEvent(self, ev) -> None:  # type: ignore[override]
+        if ev.mimeData().hasFormat("application/x-toc-row"):
+            ev.acceptProposedAction()
+
+    def dragMoveEvent(self, ev) -> None:  # type: ignore[override]
+        if ev.mimeData().hasFormat("application/x-toc-row"):
+            self._drop_y = self._indicator_y(self._insert_index(ev.position().y()))
+            self.update()
+            ev.acceptProposedAction()
+
+    def dragLeaveEvent(self, ev) -> None:  # type: ignore[override]
+        self._drop_y = None
+        self.update()
+
+    def dropEvent(self, ev) -> None:  # type: ignore[override]
+        self._drop_y = None
+        self.update()
+        from_idx = int(bytes(ev.mimeData().data("application/x-toc-row")).decode())
+        to_idx = self._insert_index(ev.position().y())
+        if to_idx != from_idx and to_idx != from_idx + 1:
+            self.reorder_requested.emit(from_idx, to_idx)
+        ev.acceptProposedAction()
+
+    def paintEvent(self, ev) -> None:  # type: ignore[override]
+        super().paintEvent(ev)
+        if self._drop_y is None:
+            return
+        painter = QPainter(self)
+        pen = QPen(QColor(INDIGO))
+        pen.setWidth(2)
+        painter.setPen(pen)
+        painter.drawLine(0, self._drop_y, self.width(), self._drop_y)
+
+    def _insert_index(self, y: float) -> int:
+        layout = self.layout()
+        if layout is None:
+            return 0
+        count = layout.count() - 1  # exclude trailing stretch
+        for i in range(count):
+            item = layout.itemAt(i)
+            if item and item.widget():
+                w = item.widget()
+                if y < w.y() + w.height() / 2:
+                    return i
+        return count
+
+    def _indicator_y(self, insert_before: int) -> int:
+        layout = self.layout()
+        if layout is None:
+            return 0
+        count = layout.count() - 1  # exclude trailing stretch
+        if count == 0:
+            return 0
+        if insert_before == 0:
+            item = layout.itemAt(0)
+            return item.widget().y() if item and item.widget() else 0
+        if insert_before >= count:
+            item = layout.itemAt(count - 1)
+            if item and item.widget():
+                w = item.widget()
+                return w.y() + w.height()
+        else:
+            item = layout.itemAt(insert_before)
+            if item and item.widget():
+                return item.widget().y()
+        return 0
 
 
 class StructurePanel(QWidget):
@@ -248,8 +385,9 @@ class StructurePanel(QWidget):
         scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        self._toc_list_container = QWidget()
+        self._toc_list_container = _TocListContainer()
         self._toc_list_container.setStyleSheet("background: transparent;")
+        self._toc_list_container.reorder_requested.connect(self._reorder_toc_rows)
         self._toc_list_layout = QVBoxLayout(self._toc_list_container)
         self._toc_list_layout.setContentsMargins(0, 0, 4, 0)
         self._toc_list_layout.setSpacing(6)
@@ -318,6 +456,20 @@ class StructurePanel(QWidget):
         """Write row widget values back into the TocEntry objects."""
         for row in self._toc_rows:
             row.sync_to_entry()
+
+    def _reorder_toc_rows(self, from_idx: int, to_idx: int) -> None:
+        n = len(self._toc_rows)
+        if not (0 <= from_idx < n and 0 <= to_idx <= n):
+            return
+        actual_to = to_idx if to_idx <= from_idx else to_idx - 1
+        row = self._toc_rows.pop(from_idx)
+        self._toc_rows.insert(actual_to, row)
+        self._toc_list_layout.removeWidget(row)
+        self._toc_list_layout.insertWidget(actual_to, row)
+        if self._structure:
+            entry = self._structure.toc_entries.pop(from_idx)
+            self._structure.toc_entries.insert(actual_to, entry)
+        self._renumber_toc_rows()
 
 
 # ── _PageRow ──────────────────────────────────────────────────────────────────
@@ -506,6 +658,8 @@ class _TocRow(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(8)
+
+        layout.addWidget(_DragHandle(self))
 
         # Level badge (number updated externally via set_index)
         self._level_lbl = QLabel("·")
