@@ -1,6 +1,6 @@
 [project]
 name = "pdf-ebook-maker"
-version = "0.3.0"
+version = "0.3.1"
 description = "A tool for processing images and creating PDF files"
 readme = "README.md"
 requires-python = ">=3.12"
