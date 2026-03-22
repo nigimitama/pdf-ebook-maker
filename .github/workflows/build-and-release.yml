@@ -1,8 +1,9 @@
-name: Build
+name: Build and Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
+    tags: ["v*"]
 
 jobs:
   build-windows:
@@ -79,3 +80,45 @@ jobs:
         with:
           name: pdf-ebook-maker-linux
           path: dist/pdf-ebook-maker
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pdf-ebook-maker-windows
+          path: artifacts/windows
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pdf-ebook-maker-macos
+          path: artifacts/macos
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pdf-ebook-maker-linux
+          path: artifacts/linux
+
+      - name: Rename artifacts
+        run: |
+          cp artifacts/windows/pdf-ebook-maker.exe pdf-ebook-maker-windows.exe
+          cp artifacts/macos/pdf-ebook-maker pdf-ebook-maker-macos
+          cp artifacts/linux/pdf-ebook-maker pdf-ebook-maker-linux
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pdf-ebook-maker-windows.exe
+            pdf-ebook-maker-macos
+            pdf-ebook-maker-linux
+          generate_release_notes: true
+          draft: true
