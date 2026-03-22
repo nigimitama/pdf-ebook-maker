@@ -251,6 +251,23 @@ class WizardPanel(QWidget):
         layout.addWidget(self._make_contrast_section())
         layout.addWidget(self._make_resize_section())
 
+        self._preview_btn = QPushButton("🔍  仕上がり確認")
+        self._preview_btn.setFixedHeight(40)
+        self._preview_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._preview_btn.setEnabled(False)
+        self._preview_btn.setStyleSheet(f"""
+            QPushButton {{
+                background:#F0F5FF; color:#6366F1;
+                border:1px solid #C7D2FE; border-radius:10px;
+                font-size:13px; font-weight:600;
+            }}
+            QPushButton:hover {{ background:#E0E7FF; }}
+            QPushButton:pressed {{ background:#C7D2FE; }}
+            QPushButton:disabled {{ background:{BG_GRAY}; color:{TEXT_MUTED}; border-color:{BORDER_LIGHT}; }}
+        """)
+        self._preview_btn.clicked.connect(self._on_preview_clicked)
+        layout.addWidget(self._preview_btn)
+
         sep = QWidget()
         sep.setFixedHeight(1)
         sep.setStyleSheet(f"background:{BORDER};")
@@ -663,6 +680,7 @@ class WizardPanel(QWidget):
         self._load_label.setVisible(False)
         self._clear_row.setVisible(False)
         self._drop_zone.setVisible(True)
+        self._preview_btn.setEnabled(False)
         self._step1.set_active()
         self._step2.set_locked()
         self._step3.set_locked()
@@ -675,6 +693,7 @@ class WizardPanel(QWidget):
         n = len(self._files)
         self._clear_row.setVisible(has_files)
         self._drop_zone.setVisible(not has_files)
+        self._preview_btn.setEnabled(has_files)
         if has_files:
             self._step1.set_completed(f"{n} ファイル選択済み")
             self._step2.set_active()
@@ -701,6 +720,34 @@ class WizardPanel(QWidget):
         return btn
 
     # ── Button handlers ────────────────────────────────────────────────────────
+
+    def _on_preview_clicked(self) -> None:
+        if not self._files:
+            return
+        import random  # noqa: PLC0415
+        from .preview_worker import PreviewWorker  # noqa: PLC0415
+
+        sample_paths = random.sample(self._files, min(10, len(self._files)))
+        self._preview_btn.setEnabled(False)
+        self._preview_btn.setText("処理中...")
+        self._preview_worker = PreviewWorker(sample_paths, self.current_options, len(self._files))
+        self._preview_worker.finished.connect(
+            lambda samples, mb: self._on_preview_done(samples, mb)
+        )
+        self._preview_worker.error.connect(self._on_preview_error)
+        self._preview_worker.start()
+
+    def _on_preview_done(self, samples: list, estimated_mb: float) -> None:
+        from .preview_dialog import ImagePreviewDialog  # noqa: PLC0415
+        self._preview_btn.setEnabled(True)
+        self._preview_btn.setText("🔍  仕上がり確認")
+        ImagePreviewDialog(samples, estimated_mb, len(self._files), parent=self).exec()
+
+    def _on_preview_error(self, msg: str) -> None:
+        self._preview_btn.setEnabled(True)
+        self._preview_btn.setText("🔍  仕上がり確認")
+        from PySide6.QtWidgets import QMessageBox  # noqa: PLC0415
+        QMessageBox.warning(self, "プレビューエラー", msg)
 
     def _on_ocr_clicked(self) -> None:
         self._ocr_btn.setEnabled(False)
