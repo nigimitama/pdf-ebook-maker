@@ -10,6 +10,24 @@
 OCR処理はCPUのみで利用可能な軽量なアルゴリズムを使用しています。
 
 
+## 使用方法
+
+### ビルド済みファイルを使う場合
+
+[Releases](https://github.com/nigimitama/pdf-ebook-maker/releases)ページに行き、お使いのOSに対応する実行ファイルをダウンロードしてください。
+
+
+### 自分でビルドする場合
+
+このリポジトリをクローンし、
+
+- Windowsの場合は `build.bat`
+- MacOS / Linuxの場合は `build.sh`
+
+を実行してください
+
+
+
 ## ライセンス
 
 本アプリ自体はMITライセンスです。
