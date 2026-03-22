@@ -28,9 +28,9 @@ from document_structure import PageEntry, TocEntry, parse_toc_line
 from .constants import BG_GRAY, BORDER_LIGHT, INDIGO, TEXT_MUTED, TEXT_PRI, WHITE
 
 _TRAILING_NUM_RE = re.compile(r"(\d{1,3})\s*$")
-_CHAPTER_HEADING_RE = re.compile(r"第.{0,2}章")
+_CHAPTER_HEADING_RE = re.compile(r"第?.{0,2}[部章節]")
 # Insert a space after 章/節 when immediately followed by a non-space character
-_CHAPTER_SPACE_RE = re.compile(r"(第.{0,2}[章節])(?!\s)")
+_CHAPTER_SPACE_RE = re.compile(r"(第?.{0,2}[部章節])(?!\s)")
 
 
 def _format_title(text: str) -> str:
