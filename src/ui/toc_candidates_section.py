@@ -348,8 +348,10 @@ class TocCandidatesSection(QWidget):
         self._filter_edit.blockSignals(False)
         while self._list_layout.count() > 1:
             item = self._list_layout.takeAt(0)
-            if item and item.widget():
-                item.widget().deleteLater()
+            if item:
+                w = item.widget()
+                if w:
+                    w.deleteLater()
 
     def _show_empty_message(self) -> None:
         lbl = _lbl(

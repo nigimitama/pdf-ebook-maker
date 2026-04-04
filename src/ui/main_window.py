@@ -1,12 +1,17 @@
 """MainWindow — top-level window that assembles the wizard and coordinates workers.
 
 Phase 1 (OCR):
-    WizardPanel.ocr_requested  →  _start_ocr       →  OcrWorker (QThread)
-    OcrWorker.ocr_done         →  _on_ocr_done     →  WizardPanel.on_ocr_done()
+    WizardPanel.ocr_requested    →  _start_ocr           →  OcrWorker (QThread)
+    OcrWorker.ocr_done           →  _on_ocr_done         →  WizardPanel.on_ocr_done()
+
+Phase 1.5 (Rotation correction):
+    WizardPanel.rotation_requested →  _on_rotation_requested
+      apply=True  →  RotationWorker  →  _on_rotation_done  →  _proceed_to_toc
+      apply=False →  _proceed_to_toc (skip)
 
 Phase 2 (PDF generation):
-    WizardPanel.pdf_requested  →  _on_pdf_requested →  PdfWorker (QThread)
-    PdfWorker.finished         →  _on_pdf_finished  →  WizardPanel.on_pdf_done()
+    WizardPanel.pdf_requested    →  _on_pdf_requested    →  PdfWorker (QThread)
+    PdfWorker.finished           →  _on_pdf_finished     →  WizardPanel.on_pdf_done()
 """
 
 from __future__ import annotations
@@ -31,6 +36,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(960, 780)
         self.resize(1060, 780)
         self._worker: OcrWorker | None = None
+        self._rotation_worker = None
         self._pdf_worker: PdfWorker | None = None
         self._preloader: ModelPreloader | None = None
         self._current_opts: RunOptions | None = None
@@ -49,6 +55,7 @@ class MainWindow(QMainWindow):
         self._wizard = WizardPanel()
         self._wizard.ocr_step_activated.connect(self._start_preload)
         self._wizard.ocr_requested.connect(self._start_ocr)
+        self._wizard.rotation_requested.connect(self._on_rotation_requested)
         self._wizard.pdf_requested.connect(self._on_pdf_requested)
 
         root = QVBoxLayout(central)
@@ -94,15 +101,62 @@ class MainWindow(QMainWindow):
         self._worker.start()
 
     def _on_ocr_done(self, image_paths: list[str], ocr_results: dict[str, list]) -> None:
-        from document_structure import build_structure  # noqa: PLC0415
-
         self._current_image_paths = image_paths
         self._current_ocr_results = ocr_results
-
-        structure = build_structure(image_paths, ocr_results)
-        self._wizard.on_ocr_done(structure, ocr_results)
+        self._wizard.on_ocr_done(image_paths, ocr_results)
         self._wizard.set_running(False)
         self._wizard.set_ocr_progress(100, "OCR完了", "")
+
+    # ── Phase 1.5: Rotation correction ────────────────────────────────────────
+
+    def _on_rotation_requested(self, apply_deskew: bool) -> None:
+        if apply_deskew:
+            from .rotation_worker import RotationWorker  # noqa: PLC0415
+
+            self._wizard.set_running(True)
+            self._wizard.set_rotation_progress(0, "傾き補正を開始します...", "")
+            self._rotation_worker = RotationWorker(
+                self._current_image_paths,
+                self._current_ocr_results,
+                angle_overrides=self._wizard.angle_overrides,
+            )
+            self._rotation_worker.progress.connect(self._wizard.set_rotation_progress)
+            self._rotation_worker.rotation_done.connect(self._on_rotation_done)
+            self._rotation_worker.error.connect(self._on_worker_error)
+            self._rotation_worker.start()
+        else:
+            self._wizard.set_rotation_progress(100, "補正なし（スキップ）", "")
+            self._proceed_to_toc(
+                self._current_image_paths,
+                self._current_ocr_results,
+                was_corrected=False,
+            )
+
+    def _on_rotation_done(
+        self, new_image_paths: list[str], path_mapping: dict[str, str]
+    ) -> None:
+        self._current_image_paths = new_image_paths
+        self._current_ocr_results = {
+            path_mapping.get(old, old): results
+            for old, results in self._current_ocr_results.items()
+        }
+        self._wizard.set_running(False)
+        self._proceed_to_toc(
+            self._current_image_paths,
+            self._current_ocr_results,
+            was_corrected=True,
+        )
+
+    def _proceed_to_toc(
+        self,
+        image_paths: list[str],
+        ocr_results: dict[str, list],
+        was_corrected: bool,
+    ) -> None:
+        from document_structure import build_structure  # noqa: PLC0415
+
+        structure = build_structure(image_paths, ocr_results)
+        self._wizard.on_correction_done(structure, ocr_results, was_corrected)
 
     # ── Phase 2: PDF generation ────────────────────────────────────────────────
 

@@ -176,9 +176,9 @@ class _TocListContainer(QWidget):
         count = layout.count() - 1  # exclude trailing stretch
         for i in range(count):
             item = layout.itemAt(i)
-            if item and item.widget():
+            if item:
                 w = item.widget()
-                if y < w.y() + w.height() / 2:
+                if w and y < w.y() + w.height() / 2:
                     return i
         return count
 
@@ -191,16 +191,23 @@ class _TocListContainer(QWidget):
             return 0
         if insert_before == 0:
             item = layout.itemAt(0)
-            return item.widget().y() if item and item.widget() else 0
+            if item:
+                w = item.widget()
+                if w:
+                    return w.y()
+            return 0
         if insert_before >= count:
             item = layout.itemAt(count - 1)
-            if item and item.widget():
+            if item:
                 w = item.widget()
-                return w.y() + w.height()
+                if w:
+                    return w.y() + w.height()
         else:
             item = layout.itemAt(insert_before)
-            if item and item.widget():
-                return item.widget().y()
+            if item:
+                w = item.widget()
+                if w:
+                    return w.y()
         return 0
 
 
