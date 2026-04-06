@@ -23,6 +23,7 @@ from .header_bar import HeaderBar
 from .model_preloader import ModelPreloader
 from .ocr_worker import OcrWorker
 from .pdf_worker import PdfWorker
+from .rotation_worker import RotationWorker
 from .run_options import RunOptions
 from .wizard_panel import WizardPanel
 
@@ -36,7 +37,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(960, 780)
         self.resize(1060, 780)
         self._worker: OcrWorker | None = None
-        self._rotation_worker = None
+        self._rotation_worker: RotationWorker | None = None
         self._pdf_worker: PdfWorker | None = None
         self._preloader: ModelPreloader | None = None
         self._current_opts: RunOptions | None = None
@@ -111,8 +112,8 @@ class MainWindow(QMainWindow):
 
     def _on_rotation_requested(self, apply_deskew: bool) -> None:
         if apply_deskew:
-            from .rotation_worker import RotationWorker  # noqa: PLC0415
-
+            if self._rotation_worker is not None:
+                self._rotation_worker.cleanup()
             self._wizard.set_running(True)
             self._wizard.set_rotation_progress(0, "傾き補正を開始します...", "")
             self._rotation_worker = RotationWorker(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -67,6 +68,12 @@ class RotationWorker(QThread):
         self._ocr_results = ocr_results
         self._angle_overrides = angle_overrides or {}
         self._temp_dir = tempfile.mkdtemp(prefix="pdf_ebook_rotation_")
+
+    def cleanup(self) -> None:
+        """一時ディレクトリを削除する。ワーカーが不要になった時点で呼ぶこと。"""
+        if self._temp_dir:
+            shutil.rmtree(self._temp_dir, ignore_errors=True)
+            self._temp_dir = ""
 
     def run(self) -> None:
         try:
