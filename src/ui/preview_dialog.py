@@ -233,8 +233,8 @@ class ImagePreviewDialog(QDialog):
                 result[row.path] = angle
         return result
 
-    def get_updated_samples(self, original_samples: list[PreviewSample]) -> list[PreviewSample]:
-        """Return samples with angle and after-image updated to what the user confirmed."""
+    def update_samples_in_place(self, original_samples: list[PreviewSample]) -> None:
+        """Update samples with angle and after-image confirmed by the user (mutates in place)."""
         row_map = {row.path: row for row in self._rows}
         for sample in original_samples:
             row = row_map.get(sample.path)
@@ -243,7 +243,6 @@ class ImagePreviewDialog(QDialog):
             if row.current_angle() is not None:
                 sample.angle = row.current_angle()
             sample.after = row.current_after_bgr()
-        return original_samples
 
     def _build(
         self,

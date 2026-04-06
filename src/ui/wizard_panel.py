@@ -979,7 +979,7 @@ class WizardPanel(QWidget):
             self._angle_overrides = dlg.get_angle_overrides()
             # Persist the confirmed angles and rendered after-images back into
             # the cache so re-opening the dialog shows what the user last confirmed.
-            dlg.get_updated_samples(samples)
+            dlg.update_samples_in_place(samples)
 
     def _on_correction_preview_error(self, msg: str) -> None:
         self._correction_preview_btn.setEnabled(True)
