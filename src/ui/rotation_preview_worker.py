@@ -33,7 +33,7 @@ class RotationPreviewWorker(QThread):
 
     def run(self) -> None:
         try:
-            from image_processing.rotation import correct_skew  # noqa: PLC0415
+            from image_processing.rotation import correct_skew, rotate_image  # noqa: PLC0415
 
             total = len(self._paths)
 
@@ -48,6 +48,7 @@ class RotationPreviewWorker(QThread):
                 entries.append((abs(angle), angle, path, img))
 
             # ── Phase 2: generate before/after sorted by |angle| desc ─────────
+            # Re-use the angle estimated in Phase 1 to avoid calling correct_skew twice.
             entries.sort(key=lambda t: t[0], reverse=True)
 
             samples: list[PreviewSample] = []
@@ -56,7 +57,7 @@ class RotationPreviewWorker(QThread):
                 self.progress.emit(pct, f"プレビュー生成中 ({j + 1}/{len(entries)})")
 
                 before_bgr = cv2.cvtColor(before_rgb, cv2.COLOR_RGB2BGR)
-                after_rgb, _ = correct_skew(before_rgb, [line.bbox for line in self._ocr_results.get(path, [])])
+                after_rgb = rotate_image(before_rgb, angle) if abs(angle) >= 0.05 else before_rgb
                 after_bgr = cv2.cvtColor(after_rgb, cv2.COLOR_RGB2BGR)
 
                 ok, buf = cv2.imencode(".jpg", after_bgr, [cv2.IMWRITE_JPEG_QUALITY, 75])
