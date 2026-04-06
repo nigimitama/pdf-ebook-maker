@@ -20,6 +20,7 @@ class PreviewSample:
     before: np.ndarray   # BGR or grayscale
     after: np.ndarray    # BGR or grayscale
     after_bytes: int     # JPEG size after processing
+    angle: float | None = None  # rotation angle in degrees (set by rotation preview)
 
 
 class PreviewWorker(QThread):

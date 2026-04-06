@@ -1,3 +1,4 @@
+import multiprocessing
 import sys
 from pathlib import Path
 
@@ -19,4 +20,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # Required for ProcessPoolExecutor to work correctly in a PyInstaller-frozen
+    # Windows executable. Must be called before any other code.
+    multiprocessing.freeze_support()
     main()
