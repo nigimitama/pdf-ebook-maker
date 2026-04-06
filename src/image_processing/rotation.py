@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import cv2
 import numpy as np
 
@@ -95,7 +97,6 @@ def transform_bboxes(
         Transformed bboxes clipped to the new image bounds.
         Boxes that end up fully outside are omitted.
     """
-    import math  # noqa: PLC0415
 
     cx, cy = orig_w / 2.0, orig_h / 2.0
     new_cx, new_cy = new_w / 2.0, new_h / 2.0
