@@ -972,7 +972,7 @@ class WizardPanel(QWidget):
             len(self._ocr_image_paths),
             parent=self,
             show_size_info=False,
-            header_text=f"傾きが大きい順に並べています（全 {len(self._ocr_image_paths)} 枚中 上位 {len(samples)} 件）",
+            header_text="推定した傾きが大きい順に並べています。誤りがあれば角度を修正して「この角度で補正する」をクリックしてください。",
             accept_label="この角度で補正する",
         )
         if dlg.exec():
