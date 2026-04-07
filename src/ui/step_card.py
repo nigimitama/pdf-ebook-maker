@@ -52,8 +52,6 @@ class StepCard(QWidget):
             f"font-size:14px;font-weight:700;color:{TEXT_MUTED};"
         )
         self._status_lbl.setText("")
-        self._indicator.setText("🔒")
-        self._indicator.setStyleSheet(f"font-size:13px;color:{TEXT_MUTED};")
         self._content.setVisible(False)
         self._sep.setVisible(False)
         self.setStyleSheet(
@@ -70,8 +68,6 @@ class StepCard(QWidget):
             f"font-size:14px;font-weight:700;color:{TEXT_PRI};"
         )
         self._status_lbl.setText("")
-        self._indicator.setText("∨")
-        self._indicator.setStyleSheet(f"font-size:14px;color:{CORAL};")
         self._content.setVisible(True)
         self._sep.setVisible(True)
         self.setStyleSheet(
@@ -88,8 +84,6 @@ class StepCard(QWidget):
             f"font-size:14px;font-weight:700;color:{TEXT_SEC};"
         )
         self._status_lbl.setText(status_text)
-        self._indicator.setText("›")
-        self._indicator.setStyleSheet(f"font-size:18px;color:{TEXT_MUTED};")
         if self._collapsible:
             self._content.setVisible(False)
             self._sep.setVisible(False)
@@ -130,9 +124,6 @@ class StepCard(QWidget):
         spacer.setStyleSheet("background:transparent;")
         hdr_layout.addWidget(spacer)
 
-        self._indicator = QLabel()
-        self._indicator.setStyleSheet("background:transparent;")
-        hdr_layout.addWidget(self._indicator)
 
         hdr.setFixedHeight(52)
         layout.addWidget(hdr)
