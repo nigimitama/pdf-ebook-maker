@@ -44,14 +44,17 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Build executable
+      - name: Build .app bundle
         run: bash build.sh
+
+      - name: Zip .app bundle
+        run: ditto -c -k --sequesterRsrc --keepParent dist/pdf-ebook-maker.app pdf-ebook-maker-macos.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pdf-ebook-maker-macos
-          path: dist/pdf-ebook-maker
+          path: pdf-ebook-maker-macos.zip
 
   build-linux:
     runs-on: ubuntu-latest
@@ -110,7 +113,7 @@ jobs:
       - name: Rename artifacts
         run: |
           cp artifacts/windows/pdf-ebook-maker.exe pdf-ebook-maker-windows.exe
-          cp artifacts/macos/pdf-ebook-maker pdf-ebook-maker-macos
+          cp artifacts/macos/pdf-ebook-maker-macos.zip pdf-ebook-maker-macos.zip
           cp artifacts/linux/pdf-ebook-maker pdf-ebook-maker-linux
 
       - name: Create release
@@ -118,7 +121,7 @@ jobs:
         with:
           files: |
             pdf-ebook-maker-windows.exe
-            pdf-ebook-maker-macos
+            pdf-ebook-maker-macos.zip
             pdf-ebook-maker-linux
           generate_release_notes: true
           draft: true
