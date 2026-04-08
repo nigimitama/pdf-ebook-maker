@@ -61,7 +61,7 @@ class OcrWorker(QThread):
             self.error.emit(str(exc))
 
     def _run_ocr(self, image_paths: list[str]) -> dict[str, list]:
-        from image_processing import resize_image, transform_intensity  # noqa: PLC0415
+        from image_processing import transform_intensity  # noqa: PLC0415
         from ocr import OCREngine  # noqa: PLC0415
 
         engine = self._engine if self._engine is not None else OCREngine()
@@ -72,13 +72,8 @@ class OcrWorker(QThread):
         for i, path in enumerate(image_paths):
             pct = int((i / total) * 90)
             self.progress.emit(pct, f"OCR処理中 ({i + 1}/{total})", Path(path).name)
+            # OCR用画像はリサイズせず輝度変換のみ適用（精度向上のため原寸を維持）
             img_np = np.array(Image.open(path).convert("RGB"))
-            if self._opts.resize_width or self._opts.resize_height:
-                img_np = resize_image(
-                    img_np,
-                    target_width=self._opts.resize_width,
-                    target_height=self._opts.resize_height,
-                )
             if self._opts.contrast_adjust:
                 img_np = transform_intensity(
                     img_np,
